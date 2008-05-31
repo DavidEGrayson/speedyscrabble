@@ -1,0 +1,14 @@
+# Source: http://www.wendallcada.com/index.php/2005/10/31/svn_add_recursively
+
+FILES=`svn status | grep "^?" | awk '{print $2}'`
+# remove leading white spaces
+FILES=${FILES## }
+# remove trailing white spaces
+FILES=${FILES%% }
+
+if [ "$FILES" == "" ]; then
+  echo "No files to add."
+  exit 0;
+fi;
+
+svn add $FILES

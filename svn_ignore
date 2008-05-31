@@ -1,0 +1,2 @@
+svn -R propset svn:ignore '' .
+svn propset svn:ignore "steals.txt" data/
