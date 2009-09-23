@@ -73,7 +73,7 @@ class Dictionary
 
   # filename should be the name of a text file where each word in the dictionary is on
   # a separate line.
-  def initialize(filename="dictionary.txt")
+  def initialize(filename="data/dictionary.txt")
     file = File.new(filename, "r")
     @data = {}
     while (word = file.gets)
