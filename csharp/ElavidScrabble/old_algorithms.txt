@@ -1,0 +1,60 @@
+        private void computePossibleStealsOld(List<Word> steals, List<Word> yesWords, List<Word> maybeWords)
+        {
+            /**
+            string s = "CPS: yes=";
+            foreach (Word w in yesWords) s += w.letters + ",";
+            s += " maybe:";
+            foreach (Word w in maybeWords) s += w.letters;
+            Console.WriteLine(s);**/
+
+            // Duplicate the maybe list because we are going to be editing it.
+            List<Word> maybeWordsCopy = new List<Word>();
+
+            // Compute yesWordsSum
+            string yesWordsSum = "";
+            foreach (Word yesWord in yesWords) { yesWordsSum += yesWord.letters; }
+
+            // How close are we to reaching the size limit?
+            int freeSize = ScrabbleDictionary.maxWordSize - yesWordsSum.Length;
+
+            foreach (Word word in maybeWords)
+            {
+                if (word.letters.Length <= freeSize)
+                {
+                    maybeWordsCopy.Add(word);
+                }
+            }
+
+            // Base case, the maybeWords list is empty.
+            if (maybeWordsCopy.Count == 0)
+            {
+                if (yesWords.Count < 2){ return; }
+
+                List<String> stringWords = ScrabbleDictionary.lookup(StringHelper.sort(yesWordsSum));
+
+                if (stringWords == null) { return; }
+
+                foreach (String stringWord in stringWords)
+                {
+                    Word steal = new Word(stringWord, null, yesWords.ToArray());
+                    steals.Add(steal);
+                    //Console.WriteLine("New steal: " + stringWord);
+                }
+
+                return;
+            }
+
+            // Recursive case: call this function twice, each one with one
+            // few maybeWords than this one has.
+            Word firstMaybeWord = maybeWordsCopy[0];
+            maybeWordsCopy.Remove(firstMaybeWord);
+
+            computePossibleSteals(steals, yesWords, maybeWordsCopy);
+
+            List<Word> yesWordsPlusOne = new List<Word>(yesWords);
+            yesWordsPlusOne.Add(firstMaybeWord);
+
+            computePossibleSteals(steals, yesWordsPlusOne, maybeWordsCopy);
+
+        }
+
