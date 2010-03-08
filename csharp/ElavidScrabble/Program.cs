@@ -14,6 +14,7 @@ namespace Elavid.SpeedyScrabble
         static void Main()
         {
             ScrabbleDictionary.init();
+            CommonWords.init();
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

@@ -16,7 +16,7 @@ namespace Elavid.SpeedyScrabble
         Player you;
         Player computer;
 
-        Strategy strategy = new RandomStrategy();
+        Strategy strategy = new StandardStrategy();
 
         Thread thinkThread;
 

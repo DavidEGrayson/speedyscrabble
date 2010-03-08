@@ -61,6 +61,57 @@ namespace Elavid.SpeedyScrabble {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to you,1222421
+        ///I,1052546
+        ///to,823661
+        ///the,770161
+        ///a,563578
+        ///and,480214
+        ///that,413389
+        ///it,388320
+        ///of,332038
+        ///me,312326
+        ///what,285826
+        ///is,282222
+        ///in,266544
+        ///this,249860
+        ///know,241548
+        ///for,216535
+        ///no,212463
+        ///have,210523
+        ///my,210429
+        ///just,196810
+        ///not,195058
+        ///do,194183
+        ///be,191823
+        ///on,191646
+        ///your,188060
+        ///was,184170
+        ///we,181863
+        ///with,169586
+        ///so,169088
+        ///but,159109
+        ///all,158281
+        ///well,155201
+        ///are,152650
+        ///he,150009
+        ///oh,148780
+        ///about,142750
+        ///right,137218
+        ///get,126849
+        ///here,124368
+        ///out,121867
+        ///going,121435
+        ///like,121194
+        ///yeah,121 [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string common_words {
+            get {
+                return ResourceManager.GetString("common_words", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to AAHED
         ///AAHING
         ///AAHS
