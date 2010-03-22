@@ -155,7 +155,7 @@ namespace Elavid.SpeedyScrabble
                 List<String> list = new List<String>(words.Count);
                 foreach(Word word in words)
                 {
-                    list.Add(words[0].owner.possessiveName + " " + words[0].letters);
+                    list.Add(word.owner.possessiveName + " " + word.letters);
                 }
 
                 message += " from " + String.Join(" and ", list.ToArray()) + "!";
