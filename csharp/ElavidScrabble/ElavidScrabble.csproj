@@ -64,6 +64,9 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="TableControl.resx">
+      <DependentUpon>TableControl.cs</DependentUpon>
+    </EmbeddedResource>
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
@@ -77,6 +80,12 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <Compile Include="TableControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="TableControl.Designer.cs">
+      <DependentUpon>TableControl.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>

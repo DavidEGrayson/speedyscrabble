@@ -32,8 +32,9 @@ namespace Elavid.SpeedyScrabble
         {
             you = new Player(true, "You", "your");
             computer = new Player(false, "Computer", "computer's");
-            game = new Game(new List<Player> { you, computer });
+            tableControl.game = game = new Game(new List<Player> { you, computer });
             updateGameStatus();
+            tableControl.update();
 
             startThinkThread();
         }
@@ -120,6 +121,7 @@ namespace Elavid.SpeedyScrabble
 
             log("Flip: " + letter);
             updateGameStatus();
+            tableControl.updateAfterFlip(letter, desiredSteals);
         }
 
         private void log(string message)
@@ -162,24 +164,6 @@ namespace Elavid.SpeedyScrabble
             }
 
             log(message);
-        }
-
-        private void thinkButton_Click(object sender, EventArgs e)
-        {
-            //possibleSteals = game.computePossibleSteals();
-            //updateGameStatus();
-            if (possibleSteals == null)
-            {
-                MessageBox.Show("Not done thinking.");
-                return;
-            }
-
-            string message = "";
-            foreach (Word word in possibleSteals)
-            {
-                message += word.letters + ", ";
-            }
-            MessageBox.Show(message);
         }
 
         public void updateGameStatus()
@@ -257,6 +241,7 @@ namespace Elavid.SpeedyScrabble
                 logSteal(newWord);
                 startThinkThread();
                 updateGameStatus();
+                tableControl.updateAfterSteal(finalSteal);
             }
         }
 
@@ -281,6 +266,7 @@ namespace Elavid.SpeedyScrabble
                 }
                 log("Time trial took " + (DateTime.Now - startTime).TotalMilliseconds + " ms.");
                 updateGameStatus();
+                tableControl.update();
             }
         }
 
