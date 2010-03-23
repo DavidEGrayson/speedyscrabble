@@ -34,6 +34,11 @@ namespace Elavid.SpeedyScrabble
 
         private void draw(Graphics graphics)
         {
+            int x;
+            int y;
+
+            const int xStart = 10;
+
             using(Pen pen = new Pen(Color.Black, 5))
             {
                 graphics.DrawRectangle(pen, new Rectangle(0, 0, Width, Height));
@@ -44,22 +49,51 @@ namespace Elavid.SpeedyScrabble
                 return;
             }
 
-            float x = 10;
-            float y = 10;
+            x = xStart;
+            y = 10;
+
+            foreach (Word word in game.tableWords)
+            {
+                const int wordHorizontalMargin = 14;
+                int drawWidth = wordWidthPx(word);
+                if (x > xStart)
+                {
+                    x += wordHorizontalMargin;
+
+                    if (x + drawWidth > Width)
+                    {
+                        // This line is full so go on to the next line.
+                        x = xStart;
+                        y += 25;
+                    }
+                }
+
+                drawWord(graphics, word, x, y);
+
+                x += drawWidth;
+            }
+
+            x = xStart;
+            y += 25;
             foreach (Player player in game.players)
             {
                 graphics.DrawString(player.name, new Font(FontFamily.GenericSansSerif, 12), Brushes.Black, x, y);
 
-                float wordY = y + 30;
+                float wordY = y + 28;
 
                 foreach (Word word in player.words)
                 {
                     drawWord(graphics, word, x, wordY);
-                    wordY += 26;
+                    wordY += 27;
                 }
 
                 x += 200;
             }
+        }
+
+        private int wordWidthPx(Word word)
+        {
+            return word.letters.Length * 22;
         }
 
         private void drawWord(Graphics graphics, Word word, float x, float y)

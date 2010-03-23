@@ -28,7 +28,6 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.statusBox = new System.Windows.Forms.TextBox();
             this.flipButton = new System.Windows.Forms.Button();
             this.logBox = new System.Windows.Forms.TextBox();
             this.wordEntryBox = new System.Windows.Forms.TextBox();
@@ -39,17 +38,6 @@
             this.tableControl = new Elavid.SpeedyScrabble.TableControl();
             this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
-            // 
-            // statusBox
-            // 
-            this.statusBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-                        | System.Windows.Forms.AnchorStyles.Left)));
-            this.statusBox.Location = new System.Drawing.Point(218, 27);
-            this.statusBox.Multiline = true;
-            this.statusBox.Name = "statusBox";
-            this.statusBox.ReadOnly = true;
-            this.statusBox.Size = new System.Drawing.Size(128, 315);
-            this.statusBox.TabIndex = 1;
             // 
             // flipButton
             // 
@@ -121,9 +109,9 @@
             this.tableControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
                         | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.tableControl.Location = new System.Drawing.Point(352, 27);
+            this.tableControl.Location = new System.Drawing.Point(218, 27);
             this.tableControl.Name = "tableControl";
-            this.tableControl.Size = new System.Drawing.Size(397, 315);
+            this.tableControl.Size = new System.Drawing.Size(531, 315);
             this.tableControl.TabIndex = 7;
             // 
             // MainWindow
@@ -136,7 +124,6 @@
             this.Controls.Add(this.wordEntryBox);
             this.Controls.Add(this.logBox);
             this.Controls.Add(this.flipButton);
-            this.Controls.Add(this.statusBox);
             this.Controls.Add(this.menuStrip1);
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "MainWindow";
@@ -151,7 +138,6 @@
 
         #endregion
 
-        private System.Windows.Forms.TextBox statusBox;
         private System.Windows.Forms.Button flipButton;
         private System.Windows.Forms.TextBox logBox;
         private System.Windows.Forms.TextBox wordEntryBox;

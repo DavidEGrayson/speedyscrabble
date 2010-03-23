@@ -168,6 +168,7 @@ namespace Elavid.SpeedyScrabble
 
         public void updateGameStatus()
         {
+            // TODO: remove this function
             string status = "";
             foreach (Word word in game.tableWords)
             {
@@ -185,7 +186,7 @@ namespace Elavid.SpeedyScrabble
                 status += "\r\n";
             }
 
-            statusBox.Text = status;
+            //statusBox.Text = status;
         }
 
         private void wordEntryBox_KeyDown(object sender, KeyEventArgs e)
