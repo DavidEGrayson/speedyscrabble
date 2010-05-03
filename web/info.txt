@@ -1,0 +1,8 @@
+OLD Websocket protocol definition
+http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
+
+pywebsocket
+http://code.google.com/p/pywebsocket/
+
+minimal tutorial
+http://maddemcode.com/web/websockets-and-pywebsocket-quick-dirty-playground/

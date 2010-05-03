@@ -1,0 +1,68 @@
+<html>
+
+<head>
+
+<script src="jquery-1.4.2.min.js"></script>
+<script type="text/javascript">
+
+start = function(){
+
+  if (!("WebSocket" in window))
+  {
+    debug("You have no web sockets.");
+    return;
+  }
+
+  debug("Trying to connect.");
+
+  var ws = new WebSocket("ws://speedyscrabble.local/play");
+
+  ws.onopen = function() {
+    // Web Socket is connected. You can send data by send() method.
+    debug("Connected!");
+    ws.send("hello from the browser");
+    ws.send("more from browser");
+  };
+
+  run = function() {
+    var val=$("#i1").val(); // read the entry
+    $("#i1").val("");       // and clear it
+    ws.send(val);           // tell erlang
+    return true;            // must do this
+  };
+
+  ws.onmessage = function (evt)
+  {
+    var data = evt.data;
+    var i = data.indexOf("!");
+    var tag = data.slice(0,i);
+    var val = data.slice(i+1);
+    $("#" + tag).html(val);
+  };
+
+  ws.onclose = function()
+  {
+    debug("Socket closed.");
+  };
+}
+
+function debug(str){
+  $("#debug").append("<p>" +  str);
+};
+
+
+$(document).ready(start);
+
+</script>
+
+</head>
+
+<body>
+
+<div id="debug"></div>
+
+<div id="clock">I am a clock</div>
+
+</body>
+
+</html>
