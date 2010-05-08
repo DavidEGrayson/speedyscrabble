@@ -15,7 +15,7 @@ start = function(){
 
   debug("Trying to connect.");
 
-  var ws = new WebSocket("ws://speedyscrabble.local/play");
+  var ws = new WebSocket("ws://speedyscrabble.local:83/play");
 
   ws.onopen = function() {
     // Web Socket is connected. You can send data by send() method.

@@ -6,3 +6,20 @@ http://code.google.com/p/pywebsocket/
 
 minimal tutorial
 http://maddemcode.com/web/websockets-and-pywebsocket-quick-dirty-playground/
+
+# Python threading
+http://docs.python.org/library/threading.html
+
+
+SIMPLEST apache2 config file:
+
+ServerName localhost
+PythonOption mod_pywebsocket.handler_root /home/david/speedyscrabble/speedyscrabble/web/wsh
+PythonHeaderParserHandler mod_pywebsocket.headerparserhandler
+PythonOption mod_pywebsocket.allow_draft75 On
+NameVirtualHost *:80
+<VirtualHost *:80>
+  ServerName speedyscrabble.local
+  DocumentRoot /home/david/speedyscrabble/speedyscrabble/web/public
+</VirtualHost>
+
