@@ -22,8 +22,6 @@ start = function(){
   ws.onopen = function() {
     // Web Socket is connected. You can send data by send() method.
     debug("Connected!");
-    ws.send("hello from the browser");
-    ws.send("more from browser");
   };
 
   run = function() {
@@ -35,11 +33,16 @@ start = function(){
 
   ws.onmessage = function (evt)
   {
-    var data = evt.data;
-    var i = data.indexOf("!");
-    var tag = data.slice(0,i);
-    var val = data.slice(i+1);
-    $("#" + tag).html(val);
+    var command = evt.data[0]
+    var data = evt.data.slice(1)
+    if (command=='t')
+    {
+        $("#clock").html(data);
+    }
+    else if (command=='c')
+    {
+        $("#chat").append("<p>"+data+"</p>")
+    }
   };
 
   ws.onclose = function()
@@ -65,9 +68,11 @@ $(document).ready(start);
 
 <div id="clock">I am a clock</div>
 
+<div id="chat" style="border:1px solid black;"></div>
+
 <input id="chat_input" type="text" value="yo"/>
 
-<input type="submit" onclick="val=document.getElementById('chat_input').value;ws.send('yello');return false"/>
+<input type="submit" onclick="val=document.getElementById('chat_input').value;ws.send(val);return false"/>
 
 </body>
 
