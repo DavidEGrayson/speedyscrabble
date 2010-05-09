@@ -17,11 +17,11 @@ while True:
     if not server.new_ws_queue.empty():
         ws = server.new_ws_queue.get_nowait()
         websocket.log.debug("Received new WS to new_ws_queue")
-        ws.send("cHi from the server.")
+        ws.send("cWelcome to the chat room.")
         websockets.add(ws)
     time.sleep(1)
     for ws in websockets:
-        ws.send("ttime=%s" % datetime.now())
+        # ws.send("ttime=%s" % datetime.now())
         frame = ws.receive()
         if frame is not None:
             websocket.log.debug("Main loop got a frame from ws: " + frame)
