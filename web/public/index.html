@@ -1,7 +1,5 @@
 <html>
-
 <head>
-
 <script src="jquery-1.4.2.min.js"></script>
 <script type="text/javascript">
 
@@ -11,17 +9,17 @@ start = function(){
 
   if (!("WebSocket" in window))
   {
-    debug("You have no web sockets.");
+    status("You have no web sockets.");
     return;
   }
 
-  debug("Trying to connect.");
+  status("Trying to connect.");
 
   ws = new WebSocket("ws://speedyscrabble.local:83/play");
 
   ws.onopen = function() {
     // Web Socket is connected. You can send data by send() method.
-    debug("Connected!");
+    status("Connected.");
   };
 
   run = function() {
@@ -41,21 +39,27 @@ start = function(){
     }
     else if (command=='c')
     {
-        cm = document.getElementById("chat_messages");
-        cm.innerHTML += "<div class=\"chat_message\">"+data+"</div>";
-        cm.scrollTop = cm.scrollHeight;
+        addChatElement("<div class=\"chat_message\">"+data+"</div>");
     }
   };
 
   ws.onclose = function()
   {
-    debug("Socket closed.");
+    status("Connection closed.");
   };
 }
 
-function debug(str){
-  document.getElementById("debug").innerHTML += "<div>"+str+"</div>";
+function status(str)
+{
+    addChatElement("<div class=\"status_message\">"+str+"</div>");
 };
+
+function addChatElement(str)
+{
+  cm = document.getElementById("chat_messages");
+  cm.innerHTML += str;
+  cm.scrollTop = cm.scrollHeight+30;
+}
 
 function sendChat()
 {
@@ -72,23 +76,40 @@ function sendChat()
 $(document).ready(start);
 
 </script>
+<style type="text/css">
+#chat_messages
+{
+    border:1px solid black;
+    width:200px;
+    height:200px;
+    overflow-y:scroll;
+}
 
+#chat_input
+{
+    width: 200px;
+}
+
+.status_message
+{
+    font-style: italic;
+}
+</style>
 </head>
 
 <body>
 
-<div id="debug"></div>
-
-<div id="clock">I am a clock</div>
-
-<div id="chat_messages" style="border:1px solid black;height:200px;overflow:scroll;"></div>
-
-<div>
-  <input id="chat_input" type="text" value="" style="width:300px;"
-    onKeyPress="if(event.which==13){sendChat();return false}return true"/>
-  <input type="submit" onClick="sendChat();return false"/>
+<div id="sidebar">
+  <div id="chat_messages"></div>
+  <div>
+    <input id="chat_input" type="text" value=""
+      onKeyPress="if(event.which==13){sendChat();return false}return true"/>
+  </div>
 </div>
 
+<div id="main">
+  Insert fun game here
+</div>
 
 </body>
 
