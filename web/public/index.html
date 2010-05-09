@@ -5,6 +5,8 @@
 <script src="jquery-1.4.2.min.js"></script>
 <script type="text/javascript">
 
+var ws;
+
 start = function(){
 
   if (!("WebSocket" in window))
@@ -15,7 +17,7 @@ start = function(){
 
   debug("Trying to connect.");
 
-  var ws = new WebSocket("ws://speedyscrabble.local:83/play");
+  ws = new WebSocket("ws://speedyscrabble.local:83/play");
 
   ws.onopen = function() {
     // Web Socket is connected. You can send data by send() method.
@@ -62,6 +64,10 @@ $(document).ready(start);
 <div id="debug"></div>
 
 <div id="clock">I am a clock</div>
+
+<input id="chat_input" type="text" value="yo"/>
+
+<input type="submit" onclick="val=document.getElementById('chat_input').value;ws.send('yello');return false"/>
 
 </body>
 
