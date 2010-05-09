@@ -41,7 +41,9 @@ start = function(){
     }
     else if (command=='c')
     {
-        $("#chat").append("<p>"+data+"</p>")
+        cm = document.getElementById("chat_messages");
+        cm.innerHTML += "<div class=\"chat_message\">"+data+"</div>";
+        cm.scrollTop = cm.scrollHeight;
     }
   };
 
@@ -52,8 +54,19 @@ start = function(){
 }
 
 function debug(str){
-  $("#debug").append("<p>" +  str);
+  document.getElementById("debug").innerHTML += "<div>"+str+"</div>";
 };
+
+function sendChat()
+{
+  var chat_input = document.getElementById('chat_input');
+  var val = chat_input.value;
+  if (val!='')
+  {
+    ws.send(val);
+    chat_input.value = '';
+  }
+}
 
 
 $(document).ready(start);
@@ -68,11 +81,14 @@ $(document).ready(start);
 
 <div id="clock">I am a clock</div>
 
-<div id="chat" style="border:1px solid black;"></div>
+<div id="chat_messages" style="border:1px solid black;height:200px;overflow:scroll;"></div>
 
-<input id="chat_input" type="text" value="yo"/>
+<div>
+  <input id="chat_input" type="text" value="" style="width:300px;"
+    onKeyPress="if(event.which==13){sendChat();return false}return true"/>
+  <input type="submit" onClick="sendChat();return false"/>
+</div>
 
-<input type="submit" onclick="val=document.getElementById('chat_input').value;ws.send(val);return false"/>
 
 </body>
 

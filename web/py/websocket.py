@@ -38,7 +38,9 @@ class WebSocket:
         self._rfile = rfile
         self._send_queue = queue.Queue()
         self._receive_queue = queue.Queue()
-        self.termination = threading.Event()
+        self._termination = threading.Event()
+        self.wait_for_termination = self._termination.wait
+        self.terminated = self._termination.is_set
         self._sender = threading.Thread(target=self.send_thread)
         self._sender.daemon = True
         self._sender.start()
@@ -47,13 +49,10 @@ class WebSocket:
         self._receiver.start()
 
     def terminate(self):
-        self.termination.set()
-
-    def terminated(self):
-        return self.termination.is_set()
-
-    def wait_for_termination(self):
-        self.termination.wait()
+        # TODO: make another function that actually sends the termination sequence
+        # to the client, or just make this function nicer and stop calling it
+        # from within this class
+        self._termination.set()
 
     def send(self, frame):
         '''Non-blocking function that puts the frame in a queue to be sent later by the sending thread.'''
@@ -106,7 +105,7 @@ class WebSocket:
                 length = length*128 + (byte & 0x7F)
                 if (byte & 0x80) == 0:
                     break
-            self._rfile.read(length) # TODO: make a function for this that throws WebsocketTerminatedException
+            self._read_bytes(length)
             if frame_type == 0xFF and length == 0:
                 log.debug("Client closed the connection.  Ending the receive thread.")
                 raise WebsocketTerminatedException
@@ -124,6 +123,12 @@ class WebSocket:
             string = bytes_obj.decode('utf-8', 'replace')
             log.debug("Received UTF8 string from socket: %s" % string)
             self._receive_queue.put(string)
+
+    def _read_bytes(self, length):
+        byte_list = self._rfile.read(length)
+        if byte_list.__len__() != length:
+            raise WebsocketTerminatedException
+        return byte_list
 
     def _read_byte(self):
         byte_list = self._rfile.read(1)
