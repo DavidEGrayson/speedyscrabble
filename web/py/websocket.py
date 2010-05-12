@@ -185,6 +185,7 @@ class WebSocketHandler(http.server.BaseHTTPRequestHandler):
         ws = WebSocket(self.request, self.rfile)
         self.server.new_ws_queue.put(ws)
         ws.wait_for_termination()
+        ws.end_threads()
         log.debug("Primary thread for websocket will now terminate.")
 
     def write_line(self, string):

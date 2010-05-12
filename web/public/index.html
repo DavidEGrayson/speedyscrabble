@@ -15,27 +15,21 @@ start = function(){
 
   status("Trying to connect.");
 
-  ws = new WebSocket("ws://speedyscrabble.local:83/play");
+  ws = new WebSocket("ws://192.168.1.102:83/play");
 
   ws.onopen = function() {
     // Web Socket is connected. You can send data by send() method.
     status("Connected.");
   };
 
-  run = function() {
-    var val=$("#i1").val(); // read the entry
-    $("#i1").val("");       // and clear it
-    ws.send(val);           // tell erlang
-    return true;            // must do this
-  };
-
   ws.onmessage = function (evt)
   {
     var command = evt.data[0]
     var data = evt.data.slice(1)
-    if (command=='t')
+    if (command=='s')
     {
-        $("#clock").html(data);
+        var sd = document.getElementById("server_status");
+        sd.innerHTML = data;
     }
     else if (command=='c')
     {
@@ -51,12 +45,12 @@ start = function(){
 
 function status(str)
 {
-    addChatElement("<div class=\"status_message\">"+str+"</div>");
-};
+  addChatElement("<div class=\"status_message\">"+str+"</div>");
+}
 
 function addChatElement(str)
 {
-  cm = document.getElementById("chat_messages");
+  var cm = document.getElementById("chat_messages");
   cm.innerHTML += str;
   cm.scrollTop = cm.scrollHeight+30;
 }
@@ -67,7 +61,7 @@ function sendChat()
   var val = chat_input.value;
   if (val!='')
   {
-    ws.send(val);
+    ws.send('c'+val);
     chat_input.value = '';
   }
 }
@@ -94,12 +88,40 @@ $(document).ready(start);
 {
     font-style: italic;
 }
+
+#page
+{
+    position: relative;
+    width: 100%;
+}
+
+#sidebar
+{
+    position: absolute;
+    width: 200px;
+    z-index: 2;
+    left: 0px;
+    top: 0px;
+}
+
+#main
+{
+    position: absolute;
+    margin-left: 210px;
+}
 </style>
 </head>
 
 <body>
 
-<div id="sidebar">
+<div id="page">
+
+<div id="main">
+  Insert fun game here
+</div>
+
+<div id="panel">
+  <div id="server_status">-</div>
   <div id="chat_messages"></div>
   <div>
     <input id="chat_input" type="text" value=""
@@ -107,8 +129,6 @@ $(document).ready(start);
   </div>
 </div>
 
-<div id="main">
-  Insert fun game here
 </div>
 
 </body>
