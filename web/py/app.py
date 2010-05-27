@@ -5,7 +5,7 @@ import time
 import threading
 from datetime import datetime
 
-host = "192.168.1.102"
+host = "192.168.1.110"
 port = 83
 
 server = websocket.WebSocketServer(host, port)
