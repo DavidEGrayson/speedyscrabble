@@ -142,11 +142,11 @@ class WebSocketServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     # will terminate even if those threads are still alive.
     socketserver.ThreadingMixIn.daemon_threads = True
 
-    def __init__(self, host, port):
+    def __init__(self, bind_host, port, allowed_origin_hosts):
         # Store ws_host and ws_port so they can easily be accessed later (ws_host gets modified
         # by TCPServer's server_bind function, so we can't just read server_address at a later time).
-        http.server.HTTPServer.__init__(self, (host, port), WebSocketHandler, True)
-        self.ws_host = host
+        http.server.HTTPServer.__init__(self, (bind_host, port), WebSocketHandler, True)
+        self.ws_host = allowed_origin_hosts[0]
         self.ws_port = port
         self.thread = None
         self.new_ws_queue = queue.Queue()

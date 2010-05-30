@@ -5,10 +5,11 @@ import time
 import threading
 from datetime import datetime
 
-host = "258.graysonfamily.org"
+bind_host = "192.168.1.110"
+allowed_origin_hosts = ["258.graysonfamily.org"]
 port = 83
 
-server = websocket.WebSocketServer(host, port)
+server = websocket.WebSocketServer(bind_host, port, allowed_origin_hosts)
 server.start()
 
 websockets = set()
