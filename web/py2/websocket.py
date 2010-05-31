@@ -32,15 +32,18 @@ class WebsocketTerminatedException(Exception):
 class BaseConnectionHandler():
     rbufsize = 512
 
-
     def __init__(self, socket, client_address, server):
         self.read_operation = None
         self.server = server
         self.socket = socket
+        self.client_address = client_address
         self.rfile = self.socket.makefile('rb', self.rbufsize)
         self._send_queue = queue.Queue()
         self._send_buffer = None
         self._send_position = 0
+
+    def __repr__(self):
+        return "<connection" + str(self.client_address) + ">"
 
     def close(self):
         self.server.close_connection(self)
@@ -98,13 +101,12 @@ class MultiplexingTcpServer():
     address_family = socket.AF_INET
     socket_type = socket.SOCK_STREAM
     request_queue_size = 2
-    connections = []
 
     select_timeout = None
-
-    _readable_objects = []
-    _writable_objects = []
-    _errorable_objects = []
+    connections = set()
+    _readable_objects = set()
+    _writable_objects = set()
+    _errorable_objects = set()
 
     def __init__(self, server_address, ConnectionHandlerClass):
         self.ConnectionHandlerClass = ConnectionHandlerClass
@@ -113,7 +115,7 @@ class MultiplexingTcpServer():
         self.socket.bind(server_address)
         self.server_address = self.socket.getsockname()
         self.socket.listen(self.request_queue_size)
-        self._readable_objects = [self]
+        self._readable_objects.add(self)
 
     def __del__(self):
         print("Closing the server socket!")
@@ -123,15 +125,15 @@ class MultiplexingTcpServer():
 
     def register_read(self, readable):
         if not readable in self._readable_objects:
-            self._readable_objects.append(readable)
+            self._readable_objects.add(readable)
 
     def close_connection(self, connection):
-        self.connections.remove(connection)
-
+        log.debug("Closing connection " + str(connection))
+        self.connections.discard(connection)
         self._readable_objects.discard(connection)
         self._writable_objects.discard(connection)
         self._errorable_objects.discard(connection)
-        connection.close()
+        connection._close()
         connection.socket.close()
 
     def handle_events(self):
@@ -156,8 +158,8 @@ class MultiplexingTcpServer():
         socket.setblocking(0)
         connection = Websocket(socket, client_address, self)
         #connection = self.ConnectionHandlerClass(socket, client_address, self)
-        self.connections.append(connection)
-        self._errorable_objects.append(connection)
+        self.connections.add(connection)
+        self._errorable_objects.add(connection)
         connection.handle_start()
         log.debug("Total connections: " + str(len(self.connections)))
 
