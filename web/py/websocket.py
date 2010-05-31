@@ -29,6 +29,23 @@ log.addHandler(handler)
 
 log.info("Starting server module.")
 
+class MultiplexingMixIn:
+    """Mix-in class to handle each request in one thread,
+    using select() to determine which one needs attention."""
+
+    requests = []
+
+    def process_request(self, request, client_address):
+        self.finish_request(request, client_address)
+
+    def finish_request(request, client_address):
+        self.requests.append(request)
+        super(MultiplexingMixin,self).finish_request(request, client_address)
+
+    def close_request(request):
+        super(MultiplexingMixin,self).close_request(request)
+        self.requests.remove(request)        
+
 class WebsocketTerminatedException(Exception):
     pass
 
@@ -79,7 +96,7 @@ class WebSocket:
             if type(exception) is WebsocketTerminatedException:
                 log.debug("Websocket connection terminated by send_thread.")
             else:
-                log.error("Unexpected exception in send_thread: " + exception);
+                log.error("Unexpected exception in send_thread: " + str(exception));
         finally:
             self.terminate()
 
@@ -91,7 +108,7 @@ class WebSocket:
             if type(exception) is WebsocketTerminatedException:
                 log.debug("Websocket connection terminated by receive_thread.")
             else:
-                log.error("Unexpected exception in receive_thread: " + exception);
+                log.error("Unexpected exception in receive_thread: " + str(exception));
         finally:
             self.terminate()
 
@@ -176,7 +193,7 @@ class WebSocketHandler(http.server.BaseHTTPRequestHandler):
         self.write_line("HTTP/1.1 101 Web Socket Protocol Handshake")
         self.write_line("Upgrade: WebSocket")
         self.write_line("Connection: Upgrade")
-        self.write_line("WebSocket-Origin: http://"+self.server.ws_host)
+        self.write_line("WebSocket-Origin: http://"+self.server.ws_host+":81") # the 81 is tmphax
         self.write_line("WebSocket-Location: ws://%s:%d/play" % (self.server.ws_host, self.server.ws_port))
         #self.write_line("WebSocket-Protocol: sample")
         self.write_line("")
