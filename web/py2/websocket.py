@@ -99,7 +99,8 @@ class BaseConnectionHandler():
             return
         except socket.error as e:
             if e.errno is errno.EWOULDBLOCK:
-                log.debug("Data not available yet.")
+                #log.debug("Data not available yet.")
+                pass
             else:
                 log.debug("Socket error:" + str(e))
                 self.close()
@@ -115,7 +116,6 @@ class BaseConnectionHandler():
             self.server.register_read(self)
 
     def handle_write(self):
-        log.debug("handle_write called")
         if len(self._send_buffer):
             num_sent = self.socket.send(self._send_buffer)
             self._send_buffer = self._send_buffer[num_sent:]
@@ -185,7 +185,10 @@ class MultiplexingTcpServer():
         readable, writable, errorable = select.select(self._readable_objects,
             self._writable_objects, self._errorable_objects, self.select_timeout)
 
-        log.debug("Selected: #r=%d, #w=%d, #e=%d" % (len(readable), len(writable), len(errorable)))
+        log.debug("Selected: #r=%d/%d, #w=%d/%d, #e=%d/%d" %
+          (     len(readable), len(self._readable_objects),
+                len(writable), len(self._writable_objects),
+                len(errorable), len(self._errorable_objects) ) )
 
         for r in readable:
             r.handle_read()
@@ -201,7 +204,7 @@ class MultiplexingTcpServer():
 
     def handle_read(self):
         socket, client_address = self.socket.accept()
-        log.info("New connection from " + str(client_address))
+        log.info("New connection from %s:%d" % (client_address[0], client_address[1]))
         socket.setblocking(0)
         connection = self.ConnectionHandlerClass(socket, client_address, self)
         self.connections.add(connection)
@@ -210,6 +213,14 @@ class MultiplexingTcpServer():
         log.debug("Total connections: " + str(len(self.connections)))
 
 class Websocket(BaseConnectionHandler):
+    def handle_new(self):
+        self.send_frame("cWelcome to the Chat Room.") # tmphax
+        pass
+
+    def send_frame(self, frame):
+        b = bytes([0]) + frame.encode('utf-8') + bytes([0xFF])
+        self.send_bytes(b)
+
     def generator(self):
         # Handle the HTTP-resembling lines received from the client.
 
@@ -250,6 +261,8 @@ class Websocket(BaseConnectionHandler):
         self.send_line("WebSocket-Origin: " + self.server.ws_origin)
         self.send_line("WebSocket-Location: " + self.server.ws_location + self.request_path)
         self.send_line("")
+
+        self.handle_new()
 
         buf = b''
         while True:

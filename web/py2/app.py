@@ -15,5 +15,4 @@ server.ws_location = "ws://258.graysonfamily.org:83"
 
 websocket.log.debug("Entering main loop.")
 while True:
-    websocket.log.debug("Handling events...")
     server.handle_events()
