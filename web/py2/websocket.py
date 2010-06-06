@@ -15,7 +15,7 @@ import queue
 import select
 import errno
 
-__all__ = ["WebSocketServer"]
+__all__ = ["WebsocketServer"]
 
 _reraised_exceptions = (KeyboardInterrupt, SystemExit)
 
@@ -26,11 +26,6 @@ handler = logging.StreamHandler()
 formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(name)s: %(message)s")
 handler.setFormatter(formatter)
 log.addHandler(handler)
-
-log.info("Starting server module.")
-
-class WebsocketTerminatedException(Exception):
-    pass
 
 class BaseConnectionHandler():
     rbufsize = 512
@@ -255,7 +250,6 @@ class MultiplexingTcpServer():
 
 class Websocket(BaseConnectionHandler):
     def handle_new(self):
-        self.write_frame("cWelcome to the Chat Room.") # tmphax
         pass
 
     def handle_frame(self, string):
@@ -263,6 +257,8 @@ class Websocket(BaseConnectionHandler):
         pass
 
     def write_frame(self, frame):
+        # Make some sort of change to ensure that frames don't
+        # get sent until a valid websocket connection is established.
         b = bytes([0]) + frame.encode('utf-8') + bytes([0xFF])
         self.write_bytes(b)
 
@@ -307,6 +303,8 @@ class Websocket(BaseConnectionHandler):
         self.write_line("WebSocket-Location: " + self.server.ws_location + self.request_path)
         self.write_line("")
 
+        self.server.websockets.add(self)
+
         self.handle_new()
 
         buf = b''
@@ -347,3 +345,13 @@ class Websocket(BaseConnectionHandler):
                 string = bytes_list.decode('utf-8', 'replace')
                 log.debug("Received UTF8 string from socket: %s" % string)
                 self.handle_frame(string)
+
+class WebsocketServer(MultiplexingTcpServer):
+    # websockets is the set of connections that have successfully
+    # completed the handshaking stage, and so we can now send and
+    # receive websocket frames from them.
+    websockets = set()
+
+    def close_connection(self, connection):
+        MultiplexingTcpServer.close_connection(self, connection)
+        self.websockets.discard(connection)
