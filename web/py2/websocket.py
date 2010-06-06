@@ -41,7 +41,7 @@ class BaseConnectionHandler():
         self.socket = socket
         self.client_address = client_address
         self.rfile = self.socket.makefile('rb', self.rbufsize)
-        self._send_buffer = b''
+        self._write_buffer = b''
 
     def __repr__(self):
         return "<connection" + str(self.client_address) + ">"
@@ -73,15 +73,25 @@ class BaseConnectionHandler():
         self.run_state_machine()
 
     def handle_read(self):
-        log.debug("Data received on web socket")
+        #log.debug("Data received on web socket")
         self.run_state_machine()
 
     def read_operation_result(self):
         if self.read_operation is None:
             return None
 
-        if self.read_operation is "readline":
+        if self.read_operation is 'readline':
             return self.rfile.readline().decode('utf-8').strip()
+
+        if self.read_operation is 'readbyte':
+            result = self.rfile.read(1)
+            #if result is None:
+            #    raise io.BlockingIOError()
+            if len(result) is 0:
+                raise BaseException("rfile.read returned 0 bytes")
+            return result[0]
+
+        raise BaseException("Unknown read operation: " + str(self.read_operation))
 
     def run_state_machine(self):
         try:
@@ -116,19 +126,50 @@ class BaseConnectionHandler():
             self.server.register_read(self)
 
     def handle_write(self):
-        if len(self._send_buffer):
-            num_sent = self.socket.send(self._send_buffer)
-            self._send_buffer = self._send_buffer[num_sent:]
-        if not len(self._send_buffer):
+        '''This is called by the MultiplexingTcpServer.handle_events
+        when our socket becomes writable and we are registered as a
+        writable object with the server.'''
+
+        # Transfer data from self._write_buffer to self.socket
+        self._write_bytes_if_needed()
+
+        # If there is no more data left in the _write_buffer,
+        # unregister this connection because we don't need to
+        # do any more writing.
+        if not len(self._write_buffer):
             self.server.unregister_write(self)
 
-    def send_bytes(self, bytes):
-        self._send_buffer += bytes
-        if len(self._send_buffer):
+    def write_bytes(self, bytes):
+        '''This is called whenever there is some new data to queue up to
+        be sent on this connection's socket.'''
+
+        self._write_buffer += bytes
+
+        # Try sending the data immediately.  This is just to decrease the
+        # latency of sending, it is not necessary.
+        self._write_bytes_if_needed()
+
+        # If not all the data could be sent immediately, then tell
+        # tell the server that this object is writable.  This means
+        # that our handle_write function will get called later when
+        # socket is ready to be written to again.
+        if len(self._write_buffer):
             self.server.register_write(self)
 
-    def send_line(self, line):
-        self.send_bytes((line+"\r\n").encode('utf-8'))
+    def _write_bytes_if_needed(self):
+        if len(self._write_buffer):
+            # Send as many bytes as the socket can accept.
+            num_sent = self.socket.send(self._write_buffer)
+
+            # Remove the sent bytes from the buffer.
+            self._write_buffer = self._write_buffer[num_sent:]
+
+    def write_line(self, line):
+        '''Write a line of text to the client.  The line
+        parameter should be a string object.  The line termination
+        character will be appended to it, it will be encoded in
+        UTF-8, and then it will be sent on the socket.'''
+        self.write_bytes((line+"\r\n").encode('utf-8'))
 
 class MultiplexingTcpServer():
     address_family = socket.AF_INET
@@ -214,12 +255,16 @@ class MultiplexingTcpServer():
 
 class Websocket(BaseConnectionHandler):
     def handle_new(self):
-        self.send_frame("cWelcome to the Chat Room.") # tmphax
+        self.write_frame("cWelcome to the Chat Room.") # tmphax
         pass
 
-    def send_frame(self, frame):
+    def handle_frame(self, string):
+        log.debug("should not be here")
+        pass
+
+    def write_frame(self, frame):
         b = bytes([0]) + frame.encode('utf-8') + bytes([0xFF])
-        self.send_bytes(b)
+        self.write_bytes(b)
 
     def generator(self):
         # Handle the HTTP-resembling lines received from the client.
@@ -255,16 +300,50 @@ class Websocket(BaseConnectionHandler):
         if line != "":
             raise BaseException("Expected blank line, but received: " + line[:255])
 
-        self.send_line("HTTP/1.1 101 Web Socket Protocol Handshake")
-        self.send_line("Upgrade: WebSocket")
-        self.send_line("Connection: Upgrade")
-        self.send_line("WebSocket-Origin: " + self.server.ws_origin)
-        self.send_line("WebSocket-Location: " + self.server.ws_location + self.request_path)
-        self.send_line("")
+        self.write_line("HTTP/1.1 101 Web Socket Protocol Handshake")
+        self.write_line("Upgrade: WebSocket")
+        self.write_line("Connection: Upgrade")
+        self.write_line("WebSocket-Origin: " + self.server.ws_origin)
+        self.write_line("WebSocket-Location: " + self.server.ws_location + self.request_path)
+        self.write_line("")
 
         self.handle_new()
 
         buf = b''
         while True:
-            #byte = yield "readbyte"
-            yield "readline"
+            # Each iteration of this loop will receive one frame from
+            # the client.
+
+            frame_type = yield 'readbyte'
+            if (frame_type & 0x80) == 0x80: # Binary frame.
+                # Determine its length.
+                length = 0
+                while True:
+                    byte = yield 'readbyte'
+                    length = length*128 + (byte & 0x7F)
+                    if (byte & 0x80) == 0:
+                        break
+
+                # Read the binary data and discard it.
+                for i in range(length):
+                    yield 'readbyte'
+
+                # The sequence 0xFF,0x00 from the client closes the connection.
+                if frame_type == 0xFF and length == 0:
+                    log.info("Connection gracefully closed by " + str(client_address))
+                    return
+            else:
+                # This is a utf-8 frame, ending with 0xFF.
+                bytes_list = bytes()
+                while True:
+                    b = yield 'readbyte'
+                    if b == 0xFF:
+                        break
+                    bytes_list += bytes([b])
+
+                # According to mod_pywebsocket, the Web Socket protocol
+                # section 4.4 specifies that invalid characters must be
+                # replaced with U+fffd REPLACEMENT CHARACTER.
+                string = bytes_list.decode('utf-8', 'replace')
+                log.debug("Received UTF8 string from socket: %s" % string)
+                self.handle_frame(string)
