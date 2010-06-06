@@ -1,12 +1,20 @@
 #!/usr/bin/python3
 
+import logging
 import websocket
 import time
 import threading
 from datetime import datetime
 
+log = logging.getLogger()
+log.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(name)s: %(message)s")
+handler.setFormatter(formatter)
+log.addHandler(handler)
+
 def handle_frame_chat(ws, frame):
-    for ws2 in server.connections:
+    for ws2 in server.websockets:
         ws2.write_frame(frame)
 
 commands_from_client = {
@@ -31,7 +39,7 @@ class SSWebSocket(websocket.Websocket):
 bind_host = "192.168.1.110"
 port = 83
 
-websocket.log.info("Starting speedy scrabble server.  ")
+log.info("Starting speedy scrabble server.")
 server = websocket.WebsocketServer((bind_host,port), SSWebSocket)
 server.ws_origin = "http://258.graysonfamily.org:81"
 server.ws_location = "ws://258.graysonfamily.org:83"
