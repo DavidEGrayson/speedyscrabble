@@ -48,18 +48,33 @@ class MyWebsocket(websocket.Websocket):
         else:
             name = 'Guest'
 
-        # Add numbers to the name to avoid duplicates, id needed
+        # Add numbers to the name to avoid duplicates, if needed
         # Assumption: self has not been added to self.server.websockets yet!
         if self.server.get_websocket_by_name(name):
             i = 1
             while self.server.get_websocket_by_name(name + str(i)):
                 i += 1
-            self.name = name + str(i)
-        else:
-            self.name = name
+            name += str(i)
 
+        self.name = name
+
+        log.info("New client: " + self.name);
+
+        # Tell the client what his assigned name is.
+        self.write_frame('n' + self.name)
+
+        # TODO: tell the client who else is in the chat room
+
+        # Sent a notification to everyone who was already connected to
+        # tell them that the client has arrived.
         for ws2 in server.websockets:
-            ws2.write_frame('c' + self.name + ' has entered.')
+            ws2.write_frame('e' + self.name)
+
+    def handle_close(self):
+        # Notify all the clients that this person has left.
+        for ws2 in server.websockets:
+            if (ws2 != self):
+                ws2.write_frame('l' + self.name)
 
     def handle_frame(self, frame):
         action = commands_from_client.get(frame[0])

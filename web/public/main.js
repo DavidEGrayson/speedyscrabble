@@ -27,12 +27,26 @@ function start()
 						var data = evt.data.slice(1)
 						if (command=='s')
 						{
+								// Received a server status message.
 								var sd = document.getElementById("server_status");
 								sd.innerHTML = data;
 						}
 						else if (command=='c')
 						{
+								// Received a message for the chat room.
 								addChatElement("<div class=\"chat_message\">"+data+"</div>");
+						}
+						else if (command=='e')
+						{
+								// Received a notification that a new user has arrived.
+								addChatElement("<div class=\"chat_message\">" + data + " has entered.</div>");
+								userList.add(data);
+						}
+						else if (command=='l')
+						{
+								// Received a notification that a new user has arrived.
+								addChatElement("<div class=\"chat_message\">" + data + " has left.</div>");
+								userList.remove(data);
 						}
 				};
 		
@@ -46,6 +60,17 @@ function status(str)
 {
 		addChatElement("<div class=\"status_message\">"+str+"</div>");
 }
+
+userList = {};
+userList.add = function(name)
+{
+}
+
+userList.remove = function(name)
+{
+}
+
+
 
 function addChatElement(str)
 {

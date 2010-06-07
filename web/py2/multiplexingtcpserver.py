@@ -15,6 +15,8 @@ _reraised_exceptions = (KeyboardInterrupt, SystemExit)
 
 log = logging.getLogger("multiplexingtcpserver")
 
+class ConnectionTerminatedByClient(Exception): pass
+
 class BaseConnectionHandler():
     rbufsize = 512
 
@@ -72,7 +74,9 @@ class BaseConnectionHandler():
             #if result is None:
             #    raise io.BlockingIOError()
             if len(result) is 0:
-                raise BaseException("rfile.read returned 0 bytes")
+                # When rfile.read returns 0 bytes it means that the client has
+                # disconnected.
+                raise ConnectionTerminatedByClient()
             return result[0]
 
         raise BaseException("Unknown read operation: " + str(self.read_operation))
@@ -89,6 +93,10 @@ class BaseConnectionHandler():
 
         except StopIteration:
             log.debug("State machine ended.")
+            self.close()
+            return
+        except ConnectionTerminatedByClient as e:
+            log.debug("Connection to " + self.name + " terminated by client.")
             self.close()
             return
         except socket.error as e:
@@ -199,7 +207,7 @@ class MultiplexingTcpServer():
         self._writable_objects.discard(writable)
 
     def close_connection(self, connection):
-        log.info("Closing connection to " + str(connection.client_address))
+        log.info("Closing connection to " + str(connection.name) + ".")
         connection._close()
         connection.socket.close()
         self.connections.discard(connection)
