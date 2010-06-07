@@ -4,6 +4,8 @@ var ws;
 /* Called when the document has been loaded. */
 function start()
 {
+    userList.docObj = document.getElementById("chat_user_list");
+
 		if (!("WebSocket" in window))
 		{
 				status("You have no web sockets.");
@@ -25,7 +27,7 @@ function start()
 				{
 						var command = evt.data[0]
 						var data = evt.data.slice(1)
-						if (command=='s')
+						if (command=='z')
 						{
 								// Received a server status message.
 								var sd = document.getElementById("server_status");
@@ -48,6 +50,16 @@ function start()
 								addChatElement("<div class=\"chat_message\">" + data + " has left.</div>");
 								userList.remove(data);
 						}
+						else if (command == 's')
+						{
+								// Received the current state of the chat room.
+								// Currently all this has is a list of the particpants.
+								var names = data.split(',')
+								for (var i=0; i < names.length; i++)
+								{
+										userList.add(names[i])
+								}
+						}
 				};
 		
 		ws.onclose = function()
@@ -64,13 +76,20 @@ function status(str)
 userList = {};
 userList.add = function(name)
 {
+    // Assumption: name is alphanumeric, with no spaces
+		// TODO: add it in the correct place so that the list is alphabetic
+    userList.docObj.innerHTML += "<div id=\"user_list_item_" + name + "\">" + name + "</div>";
+
 }
 
 userList.remove = function(name)
 {
+		var uli = document.getElementById('user_list_item_'+name);
+    if (uli)
+		{
+				userList.docObj.removeChild(uli);
+		}
 }
-
-
 
 function addChatElement(str)
 {

@@ -63,12 +63,19 @@ class MyWebsocket(websocket.Websocket):
         # Tell the client what his assigned name is.
         self.write_frame('n' + self.name)
 
-        # TODO: tell the client who else is in the chat room
+        # TODO: tell the client who else is in the chat room, including him
+        names = [self.name]
+        for ws in server.websockets:
+            names.append(ws.name)
+
+        status_frame = 's'
+        status_frame += ','.join(names)
+        self.write_frame(status_frame)
 
         # Sent a notification to everyone who was already connected to
         # tell them that the client has arrived.
-        for ws2 in server.websockets:
-            ws2.write_frame('e' + self.name)
+        for ws in server.websockets:
+            ws.write_frame('e' + self.name)
 
     def handle_close(self):
         # Notify all the clients that this person has left.

@@ -55,14 +55,20 @@ class BaseConnectionHandler():
         self.close()
 
     def handle_start(self):
+        self.server.register_read(self)
         self.state_machine = self.generator()
         self.run_state_machine()
 
     def handle_read(self):
-        #log.debug("Data received on web socket")
         self.run_state_machine()
 
-    def read_operation_result(self):
+    def _read_operation_result(self):
+        '''Attempts to get the result of the read operation requested by
+        this connection's state machine.  If the read operation can not
+        be completed yet or some other error occurs, an appropriate
+        exception is thrown.'''
+
+        # read_operation will be None when the connection first starts.
         if self.read_operation is None:
             return None
 
@@ -71,20 +77,16 @@ class BaseConnectionHandler():
 
         if self.read_operation is 'readbyte':
             result = self.rfile.read(1)
-            #if result is None:
-            #    raise io.BlockingIOError()
             if len(result) is 0:
-                # When rfile.read returns 0 bytes it means that the client has
-                # disconnected.
                 raise ConnectionTerminatedByClient()
             return result[0]
 
-        raise BaseException("Unknown read operation: " + str(self.read_operation))
+        raise Exception("Unknown read operation: " + str(self.read_operation))
 
     def run_state_machine(self):
         try:
             while True:
-                result = self.read_operation_result()
+                result = self._read_operation_result()
                 self.read_operation = self.state_machine.send(result)
                 # TODO: add a count limit here so that one connection
                 # can not monoplize the CPU if for example the user was
@@ -92,7 +94,7 @@ class BaseConnectionHandler():
                 # server
 
         except StopIteration:
-            log.debug("State machine ended.")
+            log.debug("State machine stopped.")
             self.close()
             return
         except ConnectionTerminatedByClient as e:
@@ -101,22 +103,18 @@ class BaseConnectionHandler():
             return
         except socket.error as e:
             if e.errno is errno.EWOULDBLOCK:
-                #log.debug("Data not available yet.")
                 pass
             else:
-                log.debug("Socket error:" + str(e))
+                log.error("Unexpected socket error:" + str(e))
                 self.close()
                 return
         except _reraised_exceptions:
             raise
         except BaseException as e:
-            log.error("Exception: " + str(e))
+            log.error("Unexpected exception: " + str(e))
             traceback.print_tb(e.__traceback__) # TODO: save it to log file instead
             self.close()
             return
-
-        if self.read_operation is not None:
-            self.server.register_read(self)
 
     def handle_write(self):
         '''This is called by the MultiplexingTcpServer.handle_events
@@ -185,7 +183,6 @@ class MultiplexingTcpServer():
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         self.socket.bind(server_address)
-        self.server_address = self.socket.getsockname()
         self.socket.listen(self.request_queue_size)
 
         # Listen for incoming connections when handle_events is called.
