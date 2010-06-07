@@ -1,136 +1,26 @@
 <html>
 <head>
-<script src="jquery-1.4.2.min.js"></script>
-<script type="text/javascript">
-
-var ws;
-
-start = function(){
-
-  if (!("WebSocket" in window))
-  {
-    status("You have no web sockets.");
-    return;
-  }
-
-  status("Trying to connect.");
-
-  ws = new WebSocket("ws://258.graysonfamily.org:83/play");
-
-  ws.onopen = function() {
-    // Web Socket is connected. You can send data by send() method.
-    status("Connected.");
-  };
-
-  ws.onmessage = function (evt)
-  {
-    var command = evt.data[0]
-    var data = evt.data.slice(1)
-    if (command=='s')
-    {
-        var sd = document.getElementById("server_status");
-        sd.innerHTML = data;
-    }
-    else if (command=='c')
-    {
-        addChatElement("<div class=\"chat_message\">"+data+"</div>");
-    }
-  };
-
-  ws.onclose = function()
-  {
-    status("Connection closed.");
-  };
-}
-
-function status(str)
-{
-  addChatElement("<div class=\"status_message\">"+str+"</div>");
-}
-
-function addChatElement(str)
-{
-  var cm = document.getElementById("chat_messages");
-  cm.innerHTML += str;
-  cm.scrollTop = cm.scrollHeight+30;
-}
-
-function sendChat()
-{
-  var chat_input = document.getElementById('chat_input');
-  var val = chat_input.value;
-  if (val!='')
-  {
-    ws.send('c'+val);
-    chat_input.value = '';
-  }
-}
-
-
-$(document).ready(start);
-
-</script>
-<style type="text/css">
-#chat_messages
-{
-    border:1px solid black;
-    width:200px;
-    height:200px;
-    overflow-y:scroll;
-}
-
-#chat_input
-{
-    width: 200px;
-}
-
-.status_message
-{
-    font-style: italic;
-}
-
-#page
-{
-    position: relative;
-    width: 100%;
-}
-
-#sidebar
-{
-    position: absolute;
-    width: 200px;
-    z-index: 2;
-    left: 0px;
-    top: 0px;
-}
-
-#main
-{
-    position: absolute;
-    margin-left: 210px;
-}
-</style>
+  <script src="main.js"></script>
+  <link rel="stylesheet" type="text/css" href="main.css"/>
 </head>
+<body onload="start()">
 
-<body>
+  <div id="page">
 
-<div id="page">
+    <div id="main">
+      Insert fun game here
+    </div>
 
-<div id="main">
-  Insert fun game here
-</div>
+    <div id="panel">
+      <div id="server_status">-</div>
+      <div id="chat_messages"></div>
+      <div>
+        <input id="chat_input" type="text" value=""
+          onKeyPress="if(event.which==13){sendChat();return false}return true"/>
+      </div>
+    </div>
 
-<div id="panel">
-  <div id="server_status">-</div>
-  <div id="chat_messages"></div>
-  <div>
-    <input id="chat_input" type="text" value=""
-      onKeyPress="if(event.which==13){sendChat();return false}return true"/>
   </div>
-</div>
-
-</div>
 
 </body>
-
 </html>

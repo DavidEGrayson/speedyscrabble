@@ -9,6 +9,9 @@ import time
 import threading
 import select
 import errno
+import traceback
+
+_reraised_exceptions = (KeyboardInterrupt, SystemExit)
 
 log = logging.getLogger("multiplexingtcpserver")
 
@@ -20,6 +23,7 @@ class BaseConnectionHandler():
         self.server = server
         self.socket = socket
         self.client_address = client_address
+        self.name = self.client_address[0]
         self.rfile = self.socket.makefile('rb', self.rbufsize)
         self._write_buffer = b''
 
@@ -30,8 +34,8 @@ class BaseConnectionHandler():
         self.server.close_connection(self)
 
     def _close(self):
-        self.rfile.close()
         self.handle_close()
+        self.rfile.close()
  
     def fileno(self):
         return self.socket.fileno()
@@ -99,6 +103,7 @@ class BaseConnectionHandler():
             raise
         except BaseException as e:
             log.error("Exception: " + str(e))
+            traceback.print_tb(e.__traceback__) # TODO: save it to log file instead
             self.close()
             return
 
@@ -195,12 +200,12 @@ class MultiplexingTcpServer():
 
     def close_connection(self, connection):
         log.info("Closing connection to " + str(connection.client_address))
+        connection._close()
+        connection.socket.close()
         self.connections.discard(connection)
         self._readable_objects.discard(connection)
         self._writable_objects.discard(connection)
         self._errorable_objects.discard(connection)
-        connection._close()
-        connection.socket.close()
 
     def handle_events(self):
         readable, writable, errorable = select.select(self._readable_objects,

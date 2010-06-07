@@ -1,0 +1,38 @@
+#chat_messages
+{
+    border:1px solid black;
+    width:200px;
+    height:200px;
+    overflow-y:scroll;
+}
+
+#chat_input
+{
+    width: 200px;
+}
+
+.status_message
+{
+    font-style: italic;
+}
+
+#page
+{
+    position: relative;
+    width: 100%;
+}
+
+#sidebar
+{
+    position: absolute;
+    width: 200px;
+    z-index: 2;
+    left: 0px;
+    top: 0px;
+}
+
+#main
+{
+    position: absolute;
+    margin-left: 210px;
+}
