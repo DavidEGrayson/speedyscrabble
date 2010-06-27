@@ -1,7 +1,8 @@
 
 var ws;
+var connected;
 
-/* Called when the document has been loaded. */
+// Called when the document has been loaded.
 function start()
 {
     userList.docObj = document.getElementById("chat_user_list");
@@ -12,65 +13,78 @@ function start()
 				return;
 		}
 		
-		status("Trying to connect.");
+		status(false, "Trying to connect.");
 
 		var name = getUrlParameter('name');
 		
 		ws = new WebSocket("ws://258.graysonfamily.org:83/play?name=" + escape(name));
-		
-		ws.onopen = function() {
-				// Web Socket is connected. You can send data by send() method.
-				status("Connected.");
-		};
-		
-		ws.onmessage = function (evt)
-				{
-						var command = evt.data[0]
-						var data = evt.data.slice(1)
-						if (command=='z')
-						{
-								// Received a server status message.
-								var sd = document.getElementById("server_status");
-								sd.innerHTML = data;
-						}
-						else if (command=='c')
-						{
-								// Received a message for the chat room.
-								addChatElement("<div class=\"chat_message\">"+data+"</div>");
-						}
-						else if (command=='e')
-						{
-								// Received a notification that a new user has arrived.
-								addChatElement("<div class=\"chat_message\">" + data + " has entered.</div>");
-								userList.add(data);
-						}
-						else if (command=='l')
-						{
-								// Received a notification that a new user has arrived.
-								addChatElement("<div class=\"chat_message\">" + data + " has left.</div>");
-								userList.remove(data);
-						}
-						else if (command == 's')
-						{
-								// Received the current state of the chat room.
-								// Currently all this has is a list of the particpants.
-								var names = data.split(',')
-								for (var i=0; i < names.length; i++)
-								{
-										userList.add(names[i])
-								}
-						}
-				};
-		
-		ws.onclose = function()
-				{
-						status("Connection closed.");
-				};
+		ws.onopen = onOpen;
+		ws.onmessage = onMessage;
+		ws.onclose = onClose;
 }
 
-function status(str)
+var tmphax;
+
+function onClose()
 {
-		addChatElement("<div class=\"status_message\">"+str+"</div>");
+		status(false, "Connection closed.");
+}
+
+function onOpen()
+{
+		// Web Socket is connected. You can send data by send() method.
+	  status(true, "Connected.");
+}
+
+function onMessage(evt)
+{
+	  var command = evt.data[0]
+		var data = evt.data.slice(1)
+		if (command=='z')
+		{
+				// Received a server status message.
+				var sd = document.getElementById("server_status");
+				sd.innerHTML = data;
+		}
+		else if (command=='c')
+		{
+				// Received a message for the chat room.
+				chatView.add("<div class=\"chat_message\">"+data+"</div>");
+		}
+		else if (command=='e')
+		{
+				// Received a notification that a new user has arrived.
+				chatView.add("<div class=\"chat_message\">" + data + " has entered.</div>");
+				userList.add(data);
+		}
+		else if (command=='l')
+		{
+				// Received a notification that a user has left.
+				chatView.add("<div class=\"chat_message\">" + data + " has left.</div>");
+				userList.remove(data);
+		}
+		else if (command == 's')
+		{
+				// Received the current state of the chat room.
+				// Currently all this has is a list of the particpants.
+				var names = data.split(',')
+				for (var i=0; i < names.length; i++)
+				{
+						userList.add(names[i])
+				}
+		}
+}
+
+function status(new_connected, str)
+{
+		if (new_connected != connected)
+		{
+				connected = new_connected;
+		    serverStatus = document.getElementById("server_status");
+		    serverStatus.innerHTML = connected ? "Connected" : "Not connected.";
+				document.body.className = connected ? "connected" : "not_connected";
+    }
+		chatView.add("<div class=\"status_message\">"+str+"</div>");
 }
 
 userList = {};
@@ -90,12 +104,12 @@ userList.remove = function(name)
 				userList.docObj.removeChild(uli);
 		}
 }
-
-function addChatElement(str)
+		
+var chatView = document.getElementById("chatView");
+chatView.add = function(str)
 {
-		var cm = document.getElementById("chat_messages");
-		cm.innerHTML += str;
-		cm.scrollTop = cm.scrollHeight+30;
+		this.innerHTML += str;
+		this.scrollTop = this.scrollHeight+30;
 }
 
 function sendChat()
@@ -111,7 +125,6 @@ function sendChat()
 
 function getUrlParameter(name)
 {
-		//name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
 		var regexS = "[\\?&]"+name+"=([^&#]*)";
 		var regex = new RegExp(regexS);
 		var results = regex.exec(window.location.href);

@@ -1,9 +1,8 @@
 <html>
 <head>
-  <script src="main.js"></script>
   <link rel="stylesheet" type="text/css" href="main.css"/>
 </head>
-<body onload="start()">
+<body onload="start()" class="not_connected">
 
   <div id="page">
 
@@ -12,8 +11,8 @@
     </div>
 
     <div id="panel">
-      <div id="server_status">-</div>
-      <div id="chat_messages"></div>
+      <div id="server_status">&nbsp;</div>
+      <div id="chatView"></div>
       <div>
         <input id="chat_input" type="text" value=""
           onKeyPress="if(event.which==13){sendChat();return false}return true"/>
@@ -24,5 +23,7 @@
 
   </div>
 
+
+  <script src="main.js"></script>
 </body>
 </html>

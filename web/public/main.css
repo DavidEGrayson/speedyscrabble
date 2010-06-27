@@ -1,9 +1,19 @@
-#chat_messages
+#chatView
 {
     border:1px solid black;
     width:200px;
     height:200px;
     overflow-y:scroll;
+}
+
+.not_connected #chatView
+{
+		background-color: #DDDDDD;
+}
+
+.connected #chatView
+{
+		background-color: #FFFFFF;
 }
 
 #chat_input

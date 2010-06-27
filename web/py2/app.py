@@ -5,7 +5,7 @@ import websocket
 
 bind_host = "192.168.1.110"
 port = 83
-ws_origin = "http://258.graysonfamily.org:81"
+ws_origins = ["http://258.graysonfamily.org:81", "http://localhost:81"]
 ws_host = "258.graysonfamily.org:83"
 
 log = logging.getLogger()
@@ -92,6 +92,6 @@ class MyWebsocket(websocket.Websocket):
         return self.name
 
 log.info("Starting chat room server.")
-server = websocket.WebsocketServer((bind_host, port), ws_origin, ws_host, MyWebsocket)
+server = websocket.WebsocketServer((bind_host, port), ws_origins, ws_host, MyWebsocket)
 while True:
     server.handle_events()

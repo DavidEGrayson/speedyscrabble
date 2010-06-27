@@ -22,7 +22,7 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         check more things such as self.request_path and self.params.'''
         # Make sure that the connection originated from the right webpage.
         # e.g. http://www.example.com:78
-        if self.origin != self.server.origin:
+        if self.origin not in self.server.origins:
             return False
         
         # Make sure that the Host field is correct
@@ -83,7 +83,7 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         self.write_line("HTTP/1.1 101 Web Socket Protocol Handshake")
         self.write_line("Upgrade: WebSocket")
         self.write_line("Connection: Upgrade")
-        self.write_line("WebSocket-Origin: " + self.server.origin)
+        self.write_line("WebSocket-Origin: " + self.origin)
         self.write_line("WebSocket-Location: ws://" + self.server.host + request_string)
         self.write_line("")
 
@@ -131,18 +131,27 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
                 self.handle_frame(string)
 
 class WebsocketServer(multiplexingtcpserver.MultiplexingTcpServer):
+
+    '''A server that accepts incoming websocket connections.'''
+
     # websockets is the set of connections that have successfully
     # completed the handshaking stage, and so we can now send and
     # receive websocket frames from them.
     websockets = set()
 
-    def __init__(self, server_address, origin, host, ConnectionHandlerClass):
-        '''server_address should be like ('192.168.1.110', 83).
-        origin should be like http://www.example.com (with port number if
-        it is not port 80).
+    def __init__(self, server_address, origins, host, ConnectionHandlerClass):
+        '''Initializes a new WebSocket server.
+
+        server_address is the argument passed to socket.bind() to open up
+        a port and start listening on it.  Example: ('192.168.1.110', 83).
+        origins is a list of allowed origin strings. The server requires
+        that all clients provide an Origin header equal to one of these strings.
+        It should be the domain name of the website that contains the javascript
+        code for connecting to your websocket server.
+        Example: http://www.example.com (with port number if it is not port 80).
         host should be the websocket host name (www.example.com:83)'''
         multiplexingtcpserver.MultiplexingTcpServer.__init__(self, server_address, ConnectionHandlerClass)
-        self.origin = origin
+        self.origins = origins
         self.host = host
 
     def get_websocket_by_name(self, name):
