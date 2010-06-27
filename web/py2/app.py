@@ -63,7 +63,6 @@ class MyWebsocket(websocket.Websocket):
         # Tell the client what his assigned name is.
         self.write_frame('n' + self.name)
 
-        # TODO: tell the client who else is in the chat room, including him
         names = [self.name]
         for ws in server.websockets:
             names.append(ws.name)

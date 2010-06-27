@@ -1,12 +1,11 @@
 
 var ws;
 var connected;
+var userName;
 
 // Called when the document has been loaded.
 function start()
 {
-    userList.docObj = document.getElementById("chat_user_list");
-
 		if (!("WebSocket" in window))
 		{
 				status("You have no web sockets.");
@@ -23,8 +22,6 @@ function start()
 		ws.onclose = onClose;
 }
 
-var tmphax;
-
 function onClose()
 {
 		status(false, "Connection closed.");
@@ -40,16 +37,10 @@ function onMessage(evt)
 {
 	  var command = evt.data[0]
 		var data = evt.data.slice(1)
-		if (command=='z')
-		{
-				// Received a server status message.
-				var sd = document.getElementById("server_status");
-				sd.innerHTML = data;
-		}
-		else if (command=='c')
+		if (command=='c')
 		{
 				// Received a message for the chat room.
-				chatView.add("<div class=\"chat_message\">"+data+"</div>");
+				chatView.add("<div class=\"chat_message\">"+sanitize(data)+"</div>");
 		}
 		else if (command=='e')
 		{
@@ -73,6 +64,11 @@ function onMessage(evt)
 						userList.add(names[i])
 				}
 		}
+		else if (command == 'n')
+		{
+				// Received the name that has been assigned to us by the server.
+        userName = data;
+		}
 }
 
 function status(new_connected, str)
@@ -88,6 +84,7 @@ function status(new_connected, str)
 }
 
 userList = {};
+userList.docObj = document.getElementById("chat_user_list");
 userList.add = function(name)
 {
     // Assumption: name is alphanumeric, with no spaces
@@ -129,4 +126,9 @@ function getUrlParameter(name)
 		var regex = new RegExp(regexS);
 		var results = regex.exec(window.location.href);
 		return results == null ? "" : results[1];
+}
+
+function sanitize(str)
+{
+		return str.replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
