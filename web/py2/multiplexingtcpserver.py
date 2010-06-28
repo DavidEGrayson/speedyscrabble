@@ -197,6 +197,9 @@ class MultiplexingTcpServer():
     def register_read(self, readable):
         self._readable_objects.add(readable)
 
+    def unregister_read(self, readable):
+        self._readable_objects.discard(readable)
+
     def register_write(self, writable):
         self._writable_objects.add(writable)
 
@@ -242,3 +245,6 @@ class MultiplexingTcpServer():
         self._errorable_objects.add(connection)
         connection.handle_start()
         log.debug("Total connections: " + str(len(self.connections)))
+
+
+

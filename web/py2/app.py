@@ -2,6 +2,7 @@
 
 import logging
 import websocket
+import socket
 
 bind_host = "192.168.1.110"
 port = 83
@@ -90,7 +91,8 @@ class MyWebsocket(websocket.Websocket):
     def name(self):
         return self.name
 
-log.info("Starting chat room server.")
+log.info("Starting server.")
 server = websocket.WebsocketServer((bind_host, port), ws_origins, ws_host, MyWebsocket)
+server.enable_keep_alives()
 while True:
     server.handle_events()

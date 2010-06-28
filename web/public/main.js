@@ -35,8 +35,17 @@ function onOpen()
 
 function onMessage(evt)
 {
+		if (evt.data == "")
+		{
+				// Received a keepalive message from the host.
+				return;
+		}
+
+		// The first character is the command.  The rest is
+    // the data.
 	  var command = evt.data[0]
 		var data = evt.data.slice(1)
+
 		if (command=='c')
 		{
 				// Received a message for the chat room.

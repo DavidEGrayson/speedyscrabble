@@ -2,6 +2,7 @@ import logging
 import multiplexingtcpserver
 import re
 import urllib.parse
+import eventgenerator
 
 __all__ = ["WebsocketServer"]
 
@@ -33,10 +34,12 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         return True
 
     def write_frame(self, frame):
-        # Make some sort of change to ensure that frames don't
+        # TODO: Make some sort of change to ensure that frames don't
         # get sent until a valid websocket connection is established.
-        b = bytes([0]) + frame.encode('utf-8') + bytes([0xFF])
-        self.write_bytes(b)
+        self.write_bytes(Websocket.encode_frame(frame))
+
+    def encode_frame(frame):
+        return bytes([0]) + frame.encode('utf-8') + bytes([0xFF])
 
     def generator(self):
         # Handle the HTTP-resembling lines received from the client.
@@ -154,6 +157,10 @@ class WebsocketServer(multiplexingtcpserver.MultiplexingTcpServer):
         self.origins = origins
         self.host = host
 
+        self.keep_alive_generator = eventgenerator.EventGenerator(30, self._send_keep_alives)
+
+
+
     def get_websocket_by_name(self, name):
         for c in self.websockets:
             if c.name == name:
@@ -163,3 +170,17 @@ class WebsocketServer(multiplexingtcpserver.MultiplexingTcpServer):
     def close_connection(self, connection):
         multiplexingtcpserver.MultiplexingTcpServer.close_connection(self, connection)
         self.websockets.discard(connection)
+
+    def enable_keep_alives(self, interval=30, frame=""):
+        self.keep_alive_generator.interval = interval
+        self.keep_alive_bytes = Websocket.encode_frame(frame)
+        self.keep_alive_generator.start()
+        self.register_read(self.keep_alive_generator)
+
+    def disable_keep_alives(self):
+        self.keep_alive_generator.stop()
+
+    def _send_keep_alives(self):
+        log.debug("Sending keep_alives")
+        for ws in self.websockets:
+            ws.write_bytes(self.keep_alive_bytes)
