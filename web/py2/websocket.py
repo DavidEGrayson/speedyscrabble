@@ -1,5 +1,7 @@
 import logging
 import multiplexingtcpserver
+from multiplexingtcpserver import ProtocolException
+from multiplexingtcpserver import ConnectionTerminatedByClient
 import re
 import urllib.parse
 import eventgenerator
@@ -11,35 +13,48 @@ __all__ = ["WebsocketServer"]
 log = logging.getLogger("websocket")
 
 class Websocket(multiplexingtcpserver.BaseConnectionHandler):
-    def handle_new(self):
+    # Websocket states:
+    # 'handshaking': The websocket handshake is still occurring.
+    # 'active': The websocket is active and bidirectional, and
+    #    you can send and receive frames on it.  server.websockets
+    #    is the set of all active websockets.
+    # 'clientclosing': The client sent 0xFF,0x00
+    websocket_state = 'handshaking'
+
+    def new_websocket(self):
         pass
 
     def handle_frame(self, string):
         pass
 
-    def accept_handshake(self):
+    def close_websocket(self, close_reason):
+        self.server.websockets.discard(self)
+
+    def close(self, close_reason):
+        if self.websocket_state == 'active':
+            self.close_websocket(close_reason)
+        multiplexingtcpserver.BaseConnectionHandler.close(self, close_reason)
+
+    def check_handshake(self):
         '''Returns true if the websocket handshake information is valid.
         Returns false otherwise.
         The default implementation checks self.host and self.origin,
         but the user can over-ride this function to
         check more things such as self.request_path and self.params.'''
+
         # Make sure that the connection originated from the right webpage.
         # e.g. http://www.example.com:78
         if self.origin not in self.server.origins:
-            log.info("Rejected websocket because it had invalid origin: " + self.origin[:255])
-            return False
-        
+            raise ProtocolException("Rejected websocket because it had invalid origin: " + self.origin[:255])
+
         # Make sure that the Host field is correct
         # e.g. www.example.com:83
         if self.host not in self.server.hosts:
-            log.info("Rejected websocket because it had invalid host: " + self.host)
-            return False
-
-        return True
+            raise ProtocolException("Rejected websocket because it had invalid host: " + self.host)
 
     def write_frame(self, frame):
-        # TODO: Make some sort of change to ensure that frames don't
-        # get sent until a valid websocket connection is established.
+        if self.websocket_state != 'active':
+            log.error(self.name + " is no longer an active websocket (websocket_state=%s), but write_frame was called (frame=%s)" % (self.websocket_state, frame))
         self.write_bytes(Websocket.encode_frame(frame))
 
     def encode_frame(frame):
@@ -51,16 +66,15 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         line = yield "readline"
         m = re.match("^GET (/\S+) HTTP/1.1$", line)
         if not m:
-            log.error("First line from client has bad syntax: " + line[:255])
-            return
+            raise ProtocolException("First line from client has bad syntax: " + line[:255])
+
+        log.info(self.name + ": requested: " + line[:255])
 
         request_string = m.group(1)
         
         url_parts = urllib.parse.urlparse(request_string, 'http')
         self.request_path = url_parts.path
         self.params = urllib.parse.parse_qs(url_parts.query)
-
-        log.debug("Processing new request for: " + self.request_path[:255])
 
         self.headers = dict()
         while True:
@@ -70,60 +84,43 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
 
             m = re.match("^([\u0000-\u0009\u000B-\u000C\u000E-\u0039\u003B-\U0010FFFF]+): ?([\u0000-\u0009\u000B-\u000C\u000E-\U0010FFFF]*)$", line)
             if not m:
-                log.error("Line from client has invalid syntax: " + line[:255])
-                return
+                raise ProtocolException("Line from client has invalid syntax: " + line[:255])
 
             header_name = m.group(1).lower()
             header_value = m.group(2)
             self.headers[header_name] = header_value
             
-            log.debug("header: " + header_name + ": " + header_value)
-
             if len(self.headers) > 300:
-                log.error("The client has sent too many headers.")
-                return
+                raise ProtocolException("The client has sent too many headers.")
 
         if self.headers["upgrade"].lower() != "websocket":
-            log.error("Expected Upgrade header sent by client to be 'Websocket' but it was " + self.headers["upgrade"][:255])
-            return
+            raise ProtocolException("Expected Upgrade header sent by client to be 'Websocket' but it was " + self.headers["upgrade"][:255])
 
         if self.headers["connection"].lower() != "upgrade":
-            log.error("Expected readline header sent by client to be 'Connection' but it was " + self.headers["connection"][:255])
-            return
+            raise ProtocolException("Expected readline header sent by client to be 'Connection' but it was " + self.headers["connection"][:255])
 
         if "host" not in self.headers:
-            log.error("Expected to receive a 'Host' header from client, but did not get one.")
-            return
+            raise ProtocolException("Expected to receive a 'Host' header from client, but did not get one.")
 
         self.host = self.headers["host"]
         
         if "origin" not in self.headers:
-            log.error("Expected to receive an 'Origin' header from the client, but did not get one.")
-            return
+            raise ProtocolException("Expected to receive an 'Origin' header from the client, but did not get one.")
 
         self.origin = self.headers["origin"]
 
-        if not self.accept_handshake():
-            return
+        self.check_handshake()
 
-        eight_bytes = bytes()
+        # Read 8 more bytes from the host
+        eight_more_bytes = bytes()
         for i in range(0,8):
-            eight_bytes += bytes([(yield "readbyte")])
+            eight_more_bytes += bytes([(yield "readbyte")])
 
-        byte_string = Websocket.process_key(self.headers["sec-websocket-key1"]) + Websocket.process_key(self.headers["sec-websocket-key2"]) + eight_bytes
-
+        # Compute the 16-byte challenge response
+        byte_string = Websocket.process_key(self.headers["sec-websocket-key1"]) + Websocket.process_key(self.headers["sec-websocket-key2"]) + eight_more_bytes
         m = hashlib.md5()
         m.update(byte_string)
         md5sum = m.digest()
-
-        if (len(md5sum) != 16):
-            log.error("md5sum should be 16 bytes long!")
-            return
-
-        header_s = ""
-        for x in self.headers:
-            header_s += x + " "
-        log.debug("Headers received: " + header_s)
 
         self.write_line("HTTP/1.1 101 WebSocket Protocol Handshake")
         self.write_line("Upgrade: WebSocket")
@@ -135,7 +132,8 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         self.write_line("")
         self.write_bytes(md5sum)
 
-        self.handle_new()
+        self.websocket_state = 'active'
+        self.new_websocket()
 
         self.server.websockets.add(self)
 
@@ -158,10 +156,16 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
                 for i in range(length):
                     yield 'readbyte'
 
-                # The sequence 0xFF,0x00 from the client closes the connection.
                 if frame_type == 0xFF and length == 0:
-                    log.info("Connection gracefully closed by " + str(client_address))
-                    return
+                    # The client sent 0xFF,0x00 which means it wants to
+                    # gracefully close the connection.  We must send
+                    # 0xFF,0x00 back to the client, and then stop sending
+                    # data to it.
+                    self.write_bytes(b'\xff\x00')
+                    self.websocket_state = 'clientclosing'
+                    self.close_websocket("Client sent closing handshake (0xFF,0x00).")
+                    # TODO: yield 'sendall'
+                    raise ConnectionTerminatedByClient("Gracefully terminated.")
             else:
                 # This is a utf-8 frame, ending with 0xFF.
                 bytes_list = bytes()
@@ -175,7 +179,7 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
                 # section 4.4 specifies that invalid characters must be
                 # replaced with U+fffd REPLACEMENT CHARACTER.
                 string = bytes_list.decode('utf-8', 'replace')
-                log.debug("Received frame from %s: %s" % (self.name, string))
+                log.debug(self.name + ": Received frame: " + string)
                 self.handle_frame(string)
 
     def process_key(key_str):
@@ -188,7 +192,6 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
                 space_count += 1
 
         uint32 = int(int(number_string)/space_count)
-        log.debug("Creating key for " + key_str + ": " + str(uint32))
         return struct.pack("!I", uint32) # big endian!
 
 class WebsocketServer(multiplexingtcpserver.MultiplexingTcpServer):
@@ -224,10 +227,6 @@ class WebsocketServer(multiplexingtcpserver.MultiplexingTcpServer):
             if c.name == name:
                 return c
         return None
-
-    def close_connection(self, connection):
-        multiplexingtcpserver.MultiplexingTcpServer.close_connection(self, connection)
-        self.websockets.discard(connection)
 
     def enable_keep_alives(self, interval=30, frame=""):
         self.keep_alive_generator.interval = interval

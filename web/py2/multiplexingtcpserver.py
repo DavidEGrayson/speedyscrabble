@@ -17,6 +17,8 @@ log = logging.getLogger("multiplexingtcpserver")
 
 class ConnectionTerminatedByClient(Exception): pass
 
+class ProtocolException(Exception): pass
+
 class BaseConnectionHandler():
     rbufsize = 128
 
@@ -25,33 +27,28 @@ class BaseConnectionHandler():
         self.server = server
         self.socket = socket
         self.client_address = client_address
-        self.name = self.client_address[0]
+        self.name = self.client_address[0] + ":" + str(self.client_address[1])
         self.rfile = self.socket.makefile('rb', self.rbufsize)
         self._write_buffer = b''
 
     def __repr__(self):
         return "<connection" + str(self.client_address) + ">"
 
-    def close(self):
-        self.server.close_connection(self)
-
-    def _close(self):
-        self.handle_close()
+    def close(self, close_reason):
+        log.info(self.name + ": Closing connection: " + close_reason)
         self.rfile.close()
+        self.socket.close()
+        self.server._readable_objects.discard(self)
+        self.server._writable_objects.discard(self)
+        self.server._errorable_objects.discard(self)
+        self.server.connections.discard(self)
+        log.debug("Total connections: " + str(len(self.server.connections)))
  
     def fileno(self):
         return self.socket.fileno()
 
-    def handle_close(self):
-        '''This can be overridden in derived classes to
-        handle anything that must happen when the connection is
-        closed for any reason (e.g. removing all references to
-        the connection and notifying other clients that the
-        user has left.'''
-        pass
-
     def handle_error(self):
-        log.debug("Error on connection.")
+        log.debug(self.name + ": Error on connection.")
         self.close()
 
     def handle_start(self):
@@ -69,13 +66,13 @@ class BaseConnectionHandler():
         exception is thrown.'''
 
         # read_operation will be None when the connection first starts.
-        if self.read_operation is None:
+        if self.read_operation == None:
             return None
 
-        if self.read_operation is 'readline':
+        if self.read_operation == 'readline':
             return self.rfile.readline().decode('utf-8').strip()
 
-        if self.read_operation is 'readbyte':
+        if self.read_operation == 'readbyte':
             result = self.rfile.read(1)
             if len(result) is 0:
                 raise ConnectionTerminatedByClient()
@@ -94,26 +91,29 @@ class BaseConnectionHandler():
                 # server
 
         except StopIteration:
-            log.debug("State machine stopped.")
-            self.close()
+            self.close("State machine stopped.")
             return
+        except ProtocolException as e:
+            msg = "Protocol exception: " + str(e)
+            log.error(self.name + ": " + msg)
+            self.close(msg)
         except ConnectionTerminatedByClient as e:
-            log.debug("Connection to " + self.name + " terminated by client.")
-            self.close()
+            self.close("Connection terminated by client. " + str(e))
             return
         except socket.error as e:
             if e.errno is errno.EWOULDBLOCK:
                 pass
             else:
-                log.error("Unexpected socket error:" + str(e))
-                self.close()
+                msg = "Unexpected socket error:" + str(e)
+                log.error(self.name + ": " + msg)
+                self.close(msg)
                 return
         except _reraised_exceptions:
             raise
         except BaseException as e:
-            log.error("Unexpected exception: " + str(e))
+            log.error(self.name + ": Unexpected exception: " + str(e))
             traceback.print_tb(e.__traceback__) # TODO: save it to log file instead
-            self.close()
+            self.close("Unexpected exception: " + str(e))
             return
 
     def handle_write(self):
@@ -189,9 +189,8 @@ class MultiplexingTcpServer():
         self._readable_objects.add(self)
 
     def __del__(self):
-        print("Closing the server socket!")
         for connection in self.connections:
-            self.close_connection(connection)
+            connection.close("Server is getting deleted.")
         self.socket.close()
 
     def register_read(self, readable):
@@ -205,15 +204,6 @@ class MultiplexingTcpServer():
 
     def unregister_write(self, writable):
         self._writable_objects.discard(writable)
-
-    def close_connection(self, connection):
-        log.info("Closing connection to " + str(connection.name) + ".")
-        connection._close()
-        connection.socket.close()
-        self.connections.discard(connection)
-        self._readable_objects.discard(connection)
-        self._writable_objects.discard(connection)
-        self._errorable_objects.discard(connection)
 
     def handle_events(self):
         readable, writable, errorable = select.select(self._readable_objects,
@@ -242,9 +232,10 @@ class MultiplexingTcpServer():
         socket.setblocking(0)
         connection = self.ConnectionHandlerClass(socket, client_address, self)
         self.connections.add(connection)
+        log.debug("Total connections: " + str(len(self.connections)))
         self._errorable_objects.add(connection)
         connection.handle_start()
-        log.debug("Total connections: " + str(len(self.connections)))
+
 
 
 

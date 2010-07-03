@@ -6,7 +6,7 @@ import socket
 
 bind_host = "192.168.1.110"
 port = 83
-ws_origins = ["http://258.graysonfamily.org:81", "http://localhost:81"]
+ws_origins = ["http://258.graysonfamily.org:81", "http://localhost:81", "http://localhost:82"]
 ws_hosts = ["258.graysonfamily.org:83", "192.168.1.110:83"]
 
 log = logging.getLogger()
@@ -40,7 +40,7 @@ commands_from_client = {
 }
 
 class MyWebsocket(websocket.Websocket):
-    def handle_new(self):
+    def new_websocket(self):
         # A new client has connected to the server.
         
         # Assign a name to the client, based on the name he requested
@@ -57,9 +57,10 @@ class MyWebsocket(websocket.Websocket):
                 i += 1
             name += str(i)
 
+        old_name = self.name
         self.name = name
 
-        log.info("New client: " + self.name);
+        log.info(old_name + " is now renamed to " + self.name);
 
         # Tell the client what his assigned name is.
         self.write_frame('n' + self.name)
@@ -74,12 +75,13 @@ class MyWebsocket(websocket.Websocket):
 
         # Sent a notification to everyone who was already connected to
         # tell them that the client has arrived.
-        for ws in server.websockets:
+        for ws in self.server.websockets:
             ws.write_frame('e' + self.name)
 
-    def handle_close(self):
+    def close_websocket(self, close_reason):
         # Notify all the clients that this person has left.
-        for ws2 in server.websockets:
+        websocket.Websocket.close_websocket(self, close_reason)
+        for ws2 in self.server.websockets:
             if (ws2 != self):
                 ws2.write_frame('l' + self.name)
 

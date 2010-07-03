@@ -56,6 +56,10 @@ for b in bytes:
      stri += str(b) + " "
 print("====RECEIVED BYTES: " + stri)
 
+s.sendall(b'\xff\x00')
+
 while True:
     b = r.read(1)
+    if len(b)==0: break
     print("====RECEIVED BYTE: " + str(b))
+print("Connection terminated.")
