@@ -17,6 +17,8 @@ log = logging.getLogger("multiplexingtcpserver")
 
 class ConnectionTerminatedByClient(Exception): pass
 
+class ConnectionTerminatedGracefully(Exception): pass
+
 class ProtocolException(Exception): pass
 
 class BaseConnectionHandler():
@@ -34,7 +36,12 @@ class BaseConnectionHandler():
     def __repr__(self):
         return "<connection" + str(self.client_address) + ">"
 
-    def close(self, close_reason):
+    def new_connection(self):
+        self.server.register_read(self)
+        self.state_machine = self.generator()
+        self.run_state_machine()
+
+    def close_connection(self, close_reason):
         log.info(self.name + ": Closing connection: " + close_reason)
         self.rfile.close()
         self.socket.close()
@@ -49,12 +56,7 @@ class BaseConnectionHandler():
 
     def handle_error(self):
         log.debug(self.name + ": Error on connection.")
-        self.close()
-
-    def handle_start(self):
-        self.server.register_read(self)
-        self.state_machine = self.generator()
-        self.run_state_machine()
+        self.close_connection()
 
     def handle_read(self):
         self.run_state_machine()
@@ -91,14 +93,17 @@ class BaseConnectionHandler():
                 # server
 
         except StopIteration:
-            self.close("State machine stopped.")
+            self.close_connection("State machine stopped.")
             return
         except ProtocolException as e:
             msg = "Protocol exception: " + str(e)
             log.error(self.name + ": " + msg)
-            self.close(msg)
+            self.close_connection(msg)
         except ConnectionTerminatedByClient as e:
-            self.close("Connection terminated by client. " + str(e))
+            self.close_connection("Connection terminated by client. " + str(e))
+            return
+        except ConnectionTerminatedGracefully as e:
+            self.close_connection("Connection terminated gracefully. " + str(e))
             return
         except socket.error as e:
             if e.errno is errno.EWOULDBLOCK:
@@ -106,14 +111,14 @@ class BaseConnectionHandler():
             else:
                 msg = "Unexpected socket error:" + str(e)
                 log.error(self.name + ": " + msg)
-                self.close(msg)
+                self.close_connection(msg)
                 return
         except _reraised_exceptions:
             raise
         except BaseException as e:
             log.error(self.name + ": Unexpected exception: " + str(e))
             traceback.print_tb(e.__traceback__) # TODO: save it to log file instead
-            self.close("Unexpected exception: " + str(e))
+            self.close_connection("Unexpected exception: " + str(e))
             return
 
     def handle_write(self):
@@ -190,7 +195,7 @@ class MultiplexingTcpServer():
 
     def __del__(self):
         for connection in self.connections:
-            connection.close("Server is getting deleted.")
+            connection.close_connection("Server is getting deleted.")
         self.socket.close()
 
     def register_read(self, readable):
@@ -234,7 +239,7 @@ class MultiplexingTcpServer():
         self.connections.add(connection)
         log.debug("Total connections: " + str(len(self.connections)))
         self._errorable_objects.add(connection)
-        connection.handle_start()
+        connection.new_connection()
 
 
 

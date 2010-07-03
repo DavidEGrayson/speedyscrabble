@@ -1,7 +1,7 @@
 import logging
 import multiplexingtcpserver
 from multiplexingtcpserver import ProtocolException
-from multiplexingtcpserver import ConnectionTerminatedByClient
+from multiplexingtcpserver import ConnectionTerminatedGracefully
 import re
 import urllib.parse
 import eventgenerator
@@ -18,7 +18,18 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
     # 'active': The websocket is active and bidirectional, and
     #    you can send and receive frames on it.  server.websockets
     #    is the set of all active websockets.
-    # 'clientclosing': The client sent 0xFF,0x00
+    # 'clientclosing': The client sent 0xFF,0x00 so now the we are
+    #    send 0xFF,0x00 and we will close the connection when that
+    #    is done.
+    # 'serverclosing': For some reason, the user's server-side code
+    #    wants to terminate the connection, so 0xFF,0x00 has been
+    #    queued up to be sent.  All further data from the client
+    #    will be ignored, and when a 0xFF,0x00 is received we will
+    #    shut down the connection.
+    # 'connectionclosing': There was an exception, so we are
+    #    just going to close the connection without any handshakes.
+    #    This is a short-lived state which the user should only
+    #    encounter during his close_websocket() function.
     websocket_state = 'handshaking'
 
     def new_websocket(self):
@@ -28,12 +39,14 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         pass
 
     def close_websocket(self, close_reason):
+        assert self.websocket_state != 'active'
         self.server.websockets.discard(self)
 
-    def close(self, close_reason):
+    def close_connection(self, close_reason):
         if self.websocket_state == 'active':
+            self.websocket_state = 'connectionclosing'
             self.close_websocket(close_reason)
-        multiplexingtcpserver.BaseConnectionHandler.close(self, close_reason)
+        multiplexingtcpserver.BaseConnectionHandler.close_connection(self, close_reason)
 
     def check_handshake(self):
         '''Returns true if the websocket handshake information is valid.
@@ -157,15 +170,21 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
                     yield 'readbyte'
 
                 if frame_type == 0xFF and length == 0:
-                    # The client sent 0xFF,0x00 which means it wants to
-                    # gracefully close the connection.  We must send
-                    # 0xFF,0x00 back to the client, and then stop sending
-                    # data to it.
-                    self.write_bytes(b'\xff\x00')
-                    self.websocket_state = 'clientclosing'
-                    self.close_websocket("Client sent closing handshake (0xFF,0x00).")
-                    # TODO: yield 'sendall'
-                    raise ConnectionTerminatedByClient("Gracefully terminated.")
+                    if self.websocket_state == 'active':
+                        # The client sent 0xFF,0x00 which means it wants to
+                        # gracefully close the connection.  We must send
+                        # 0xFF,0x00 back to the client, and then stop sending
+                        # data to it.
+                        self.write_bytes(b'\xff\x00')
+                        self.websocket_state = 'clientclosing'
+                        self.close_websocket("Client sent closing handshake (0xFF,0x00).")
+                        # TODO: yield 'sendall'
+                        raise ConnectionTerminatedGracefully("By client.")
+                    elif self.websocket_state == 'serverclosing':
+                        # We sent a closing handshake, and the client sent
+                        # one too (probably in response to ours), so we can
+                        # terminate the connection gracefull.
+                        raise ConnectionTerminatedGracefully("By server.")
             else:
                 # This is a utf-8 frame, ending with 0xFF.
                 bytes_list = bytes()
@@ -175,12 +194,16 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
                         break
                     bytes_list += bytes([b])
 
-                # According to mod_pywebsocket, the Web Socket protocol
+                # TODO: According to mod_pywebsocket, the Web Socket protocol
                 # section 4.4 specifies that invalid characters must be
                 # replaced with U+fffd REPLACEMENT CHARACTER.
-                string = bytes_list.decode('utf-8', 'replace')
-                log.debug(self.name + ": Received frame: " + string)
-                self.handle_frame(string)
+                
+                if self.websocket_state == 'active':
+                    string = bytes_list.decode('utf-8', 'replace')
+                    log.debug(self.name + ": Received frame: " + string)
+                    self.handle_frame(string)
+                else:
+                    log.debug(self.name + ": Ignoring frame because websocket_state=%s: %s" % (self.websocket_state, string))
 
     def process_key(key_str):
         number_string = ""
