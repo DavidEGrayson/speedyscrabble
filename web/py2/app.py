@@ -7,7 +7,7 @@ import socket
 bind_host = "192.168.1.110"
 port = 83
 ws_origins = ["http://258.graysonfamily.org:81", "http://localhost:81"]
-ws_host = "258.graysonfamily.org:83"
+ws_hosts = ["258.graysonfamily.org:83", "192.168.1.110:83"]
 
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
@@ -92,7 +92,7 @@ class MyWebsocket(websocket.Websocket):
         return self.name
 
 log.info("Starting server.")
-server = websocket.WebsocketServer((bind_host, port), ws_origins, ws_host, MyWebsocket)
+server = websocket.WebsocketServer((bind_host, port), ws_origins, ws_hosts, MyWebsocket)
 server.enable_keep_alives()
 while True:
     server.handle_events()

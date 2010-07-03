@@ -17,8 +17,9 @@ function start()
 		var name = getUrlParameter('name');
 		
 		//ws = new WebSocket("ws://258.graysonfamily.org:83/play?name=" + escape(name));
-		ws = new WebSocket("ws://192.168.1.110:83/play"); // cool server
+		//ws = new WebSocket("ws://192.168.1.110:83/play"); // cool server
 		//ws = new WebSocket("ws://192.168.1.110:82/play"); // pywebsocket
+		ws = new WebSocket("ws://192.168.1.110:83/play?name=" + escape(name));
 		ws.onopen = onOpen;
 		ws.onmessage = onMessage;
 		ws.onclose = onClose;

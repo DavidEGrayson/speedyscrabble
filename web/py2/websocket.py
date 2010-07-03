@@ -31,8 +31,8 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         
         # Make sure that the Host field is correct
         # e.g. www.example.com:83
-        if self.host != self.server.host:
-            log.info("Rejected websocket because it had invalid host: " + self.host + "(expected " + self.server.host + ")")
+        if self.host not in self.server.hosts:
+            log.info("Rejected websocket because it had invalid host: " + self.host)
             return False
 
         return True
@@ -128,7 +128,7 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         self.write_line("HTTP/1.1 101 WebSocket Protocol Handshake")
         self.write_line("Upgrade: WebSocket")
         self.write_line("Connection: Upgrade")
-        self.write_line("Sec-WebSocket-Location: ws://" + self.host + self.request_path)
+        self.write_line("Sec-WebSocket-Location: ws://" + self.host + request_string)
         self.write_line("Sec-WebSocket-Origin: " + self.origin)
         if "sec-websocket-protocol" in self.headers:
             self.write_line("Sec-WebSocket-Protocol: " + self.headers["sec-websocket-protocol"])
@@ -200,7 +200,7 @@ class WebsocketServer(multiplexingtcpserver.MultiplexingTcpServer):
     # receive websocket frames from them.
     websockets = set()
 
-    def __init__(self, server_address, origins, host, ConnectionHandlerClass):
+    def __init__(self, server_address, origins, hosts, ConnectionHandlerClass):
         '''Initializes a new WebSocket server.
 
         server_address is the argument passed to socket.bind() to open up
@@ -210,10 +210,10 @@ class WebsocketServer(multiplexingtcpserver.MultiplexingTcpServer):
         It should be the domain name of the website that contains the javascript
         code for connecting to your websocket server.
         Example: http://www.example.com (with port number if it is not port 80).
-        host should be the websocket host name (www.example.com:83)'''
+        hosts should be the allowed websocket host names (www.example.com:83)'''
         multiplexingtcpserver.MultiplexingTcpServer.__init__(self, server_address, ConnectionHandlerClass)
         self.origins = origins
-        self.host = host
+        self.hosts = hosts
 
         self.keep_alive_generator = eventgenerator.EventGenerator(30, self._send_keep_alives)
 
