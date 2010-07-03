@@ -3,6 +3,8 @@ import multiplexingtcpserver
 import re
 import urllib.parse
 import eventgenerator
+import hashlib
+import struct
 
 __all__ = ["WebsocketServer"]
 
@@ -24,11 +26,13 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         # Make sure that the connection originated from the right webpage.
         # e.g. http://www.example.com:78
         if self.origin not in self.server.origins:
+            log.info("Rejected websocket because it had invalid origin: " + self.origin[:255])
             return False
         
         # Make sure that the Host field is correct
         # e.g. www.example.com:83
         if self.host != self.server.host:
+            log.info("Rejected websocket because it had invalid host: " + self.host + "(expected " + self.server.host + ")")
             return False
 
         return True
@@ -45,9 +49,11 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
         # Handle the HTTP-resembling lines received from the client.
 
         line = yield "readline"
-        m = re.match("GET (/\S+) HTTP/1.1$", line)
+        m = re.match("^GET (/\S+) HTTP/1.1$", line)
         if not m:
-            raise BaseException("First line from client has bad syntax: " + line[:255])
+            log.error("First line from client has bad syntax: " + line[:255])
+            return
+
         request_string = m.group(1)
         
         url_parts = urllib.parse.urlparse(request_string, 'http')
@@ -56,39 +62,78 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
 
         log.debug("Processing new request for: " + self.request_path[:255])
 
-        line = yield "readline"
-        if line != "Upgrade: WebSocket":
-            raise BaseException("Upgrade line from client has bad syntax: " + line[:255])
+        self.headers = dict()
+        while True:
+            line = yield "readline"
+            if line is "":
+                break
 
-        line = yield "readline"
-        if line != "Connection: Upgrade":
-            raise BaseException("Connection line from client has bad syntax: " + line[:255])
+            m = re.match("^([\u0000-\u0009\u000B-\u000C\u000E-\u0039\u003B-\U0010FFFF]+): ?([\u0000-\u0009\u000B-\u000C\u000E-\U0010FFFF]*)$", line)
+            if not m:
+                log.error("Line from client has invalid syntax: " + line[:255])
+                return
 
-        line = yield "readline"
-        m = re.match("Host: (\S+)$", line)
-        if not m:
-            raise BaseException("Host line from client has bad syntax: " + line[:255])
-        self.host = m.group(1)
+            header_name = m.group(1).lower()
+            header_value = m.group(2)
+            self.headers[header_name] = header_value
+            
+            log.debug("header: " + header_name + ": " + header_value)
 
-        line = yield "readline"
-        m = re.match("Origin: (\S+)$", line)
-        if not m:
-            raise BaseException("Origin line from client has bad syntax: " + line[:255])
-        self.origin = m.group(1)
+            if len(self.headers) > 300:
+                log.error("The client has sent too many headers.")
+                return
 
-        line = yield "readline"
-        if line != "":
-            raise BaseException("Expected blank line, but received: " + line[:255])
+        if self.headers["upgrade"].lower() != "websocket":
+            log.error("Expected Upgrade header sent by client to be 'Websocket' but it was " + self.headers["upgrade"][:255])
+            return
+
+        if self.headers["connection"].lower() != "upgrade":
+            log.error("Expected readline header sent by client to be 'Connection' but it was " + self.headers["connection"][:255])
+            return
+
+        if "host" not in self.headers:
+            log.error("Expected to receive a 'Host' header from client, but did not get one.")
+            return
+
+        self.host = self.headers["host"]
+        
+        if "origin" not in self.headers:
+            log.error("Expected to receive an 'Origin' header from the client, but did not get one.")
+            return
+
+        self.origin = self.headers["origin"]
 
         if not self.accept_handshake():
             return
 
-        self.write_line("HTTP/1.1 101 Web Socket Protocol Handshake")
+        eight_bytes = bytes()
+        for i in range(0,8):
+            eight_bytes += bytes([(yield "readbyte")])
+
+        byte_string = Websocket.process_key(self.headers["sec-websocket-key1"]) + Websocket.process_key(self.headers["sec-websocket-key2"]) + eight_bytes
+
+        m = hashlib.md5()
+        m.update(byte_string)
+        md5sum = m.digest()
+
+        if (len(md5sum) != 16):
+            log.error("md5sum should be 16 bytes long!")
+            return
+
+        header_s = ""
+        for x in self.headers:
+            header_s += x + " "
+        log.debug("Headers received: " + header_s)
+
+        self.write_line("HTTP/1.1 101 WebSocket Protocol Handshake")
         self.write_line("Upgrade: WebSocket")
         self.write_line("Connection: Upgrade")
-        self.write_line("WebSocket-Origin: " + self.origin)
-        self.write_line("WebSocket-Location: ws://" + self.server.host + request_string)
+        self.write_line("Sec-WebSocket-Location: ws://" + self.host + self.request_path)
+        self.write_line("Sec-WebSocket-Origin: " + self.origin)
+        if "sec-websocket-protocol" in self.headers:
+            self.write_line("Sec-WebSocket-Protocol: " + self.headers["sec-websocket-protocol"])
         self.write_line("")
+        self.write_bytes(md5sum)
 
         self.handle_new()
 
@@ -132,6 +177,19 @@ class Websocket(multiplexingtcpserver.BaseConnectionHandler):
                 string = bytes_list.decode('utf-8', 'replace')
                 log.debug("Received frame from %s: %s" % (self.name, string))
                 self.handle_frame(string)
+
+    def process_key(key_str):
+        number_string = ""
+        space_count = 0
+        for char in key_str:
+            if char.isdigit():
+                number_string += char
+            if char == " ":
+                space_count += 1
+
+        uint32 = int(int(number_string)/space_count)
+        log.debug("Creating key for " + key_str + ": " + str(uint32))
+        return struct.pack("!I", uint32) # big endian!
 
 class WebsocketServer(multiplexingtcpserver.MultiplexingTcpServer):
 

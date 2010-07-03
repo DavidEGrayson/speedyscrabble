@@ -18,7 +18,7 @@ log = logging.getLogger("multiplexingtcpserver")
 class ConnectionTerminatedByClient(Exception): pass
 
 class BaseConnectionHandler():
-    rbufsize = 512
+    rbufsize = 128
 
     def __init__(self, socket, client_address, server):
         self.read_operation = None
