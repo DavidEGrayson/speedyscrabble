@@ -30,10 +30,12 @@ def sanitize_user_name(raw_name):
     return name
 
 
-def handle_frame_chat(ws, frame):
-    frame = "c" + ws.name + ": " + frame[1:]
+def handle_frame_chat(ws, data):
+    frame = "c" + ws.name + ": " + data
     for ws2 in server.websockets:
         ws2.write_frame(frame)
+    if data == "bye": #tmphax
+        ws.close_websocket("He said bye.")
 
 commands_from_client = {
   'c': handle_frame_chat
@@ -88,7 +90,7 @@ class MyWebsocket(websocket.Websocket):
     def handle_frame(self, frame):
         action = commands_from_client.get(frame[0])
         if action is not None:
-            action(self, frame)
+            action(self, frame[1:])
 
     def name(self):
         return self.name
@@ -97,4 +99,7 @@ log.info("Starting server.")
 server = websocket.WebsocketServer((bind_host, port), ws_origins, ws_hosts, MyWebsocket)
 server.enable_keep_alives()
 while True:
-    server.handle_events()
+    try:
+        server.handle_events()
+    except KeyboardInterrupt:
+        break

@@ -56,6 +56,8 @@ for b in bytes:
      stri += str(b) + " "
 print("====RECEIVED BYTES: " + stri)
 
+s.sendall(b'\x00' + ("cbye").encode("utf-8") + b'\xff')
+s.sendall(b'\x00' + ("csillly").encode("utf-8") + b'\xff')
 s.sendall(b'\xff\x00')
 
 while True:

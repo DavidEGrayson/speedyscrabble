@@ -28,6 +28,7 @@ class EventGenerator():
         self._rsocket.setblocking(0)
         self._wsocket.setblocking(1)
         self.fileno = self._rsocket.fileno
+        self.name = "EventGenerator"
 
     def start(self):
         self._thread = EventGeneratingThread(self)

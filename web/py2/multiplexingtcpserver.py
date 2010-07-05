@@ -16,30 +16,36 @@ _reraised_exceptions = (KeyboardInterrupt, SystemExit)
 log = logging.getLogger("multiplexingtcpserver")
 
 class ConnectionTerminatedByClient(Exception): pass
-
-class ConnectionTerminatedGracefully(Exception): pass
-
+class ConnectionTerminatedCleanly(Exception): pass
 class ProtocolException(Exception): pass
+class ReadingNotDone(Exception): pass
+class WritingNotDone(Exception): pass
 
 class BaseConnectionHandler():
     rbufsize = 128
 
     def __init__(self, socket, client_address, server):
-        self.read_operation = None
+        self.io_operation = None
         self.server = server
         self.socket = socket
+        self.fileno = self.socket.fileno
         self.client_address = client_address
         self.name = self.client_address[0] + ":" + str(self.client_address[1])
         self.rfile = self.socket.makefile('rb', self.rbufsize)
         self._write_buffer = b''
 
-    def __repr__(self):
-        return "<connection" + str(self.client_address) + ">"
-
     def new_connection(self):
-        self.server.register_read(self)
+        '''This is called shortly after __init__.'''
+        # We wouldn't want to add this code to __init__ because run_state_machine
+        # might do a number of things such as close the connection.  That would make
+        # the code in MultiplexingTcpServer.handle_read more complex because we'd
+        # have to check if the connection has been closed yet before adding it to
+        # the connections set and errorable objects.
         self.state_machine = self.generator()
         self.run_state_machine()
+
+    def __repr__(self):
+        return "<connection " + str(self.name) + ">"
 
     def close_connection(self, close_reason):
         log.info(self.name + ": Closing connection: " + close_reason)
@@ -51,68 +57,78 @@ class BaseConnectionHandler():
         self.server.connections.discard(self)
         log.debug("Total connections: " + str(len(self.server.connections)))
  
-    def fileno(self):
-        return self.socket.fileno()
-
     def handle_error(self):
         log.debug(self.name + ": Error on connection.")
-        self.close_connection()
+        self.close_connection("Error on connection.")
 
     def handle_read(self):
         self.run_state_machine()
 
-    def _read_operation_result(self):
+    def _io_operation_result(self):
         '''Attempts to get the result of the read operation requested by
         this connection's state machine.  If the read operation can not
         be completed yet or some other error occurs, an appropriate
         exception is thrown.'''
 
         # read_operation will be None when the connection first starts.
-        if self.read_operation == None:
+        if self.io_operation == None:
             return None
 
-        if self.read_operation == 'readline':
-            return self.rfile.readline().decode('utf-8').strip()
+        try:
+            if self.io_operation == 'readline':
+                return self.rfile.readline().decode('utf-8')
 
-        if self.read_operation == 'readbyte':
-            result = self.rfile.read(1)
-            if len(result) is 0:
-                raise ConnectionTerminatedByClient()
-            return result[0]
+            if self.io_operation == 'readbyte':
+                result = self.rfile.read(1)
+                if len(result) is 0:
+                    raise ConnectionTerminatedByClient()
+                return result[0]
+        except socket.error as e:
+            if e.errno is errno.EWOULDBLOCK: raise ReadingNotDone()
+            else: raise
+    
+        if self.io_operation == 'sendall':
+            if len(self._write_buffer) > 0:
+                raise WritingNotDone()
+            log.debug(self.name + ": done with sendall")
+            return None
 
         raise Exception("Unknown read operation: " + str(self.read_operation))
 
     def run_state_machine(self):
+        '''Basically, this function is just:
+        
+            while True:
+               result = self._io_operation_result()
+               self.io_operation = self.state_machine.send(result)'''
+
         try:
             while True:
-                result = self._read_operation_result()
-                self.read_operation = self.state_machine.send(result)
-                # TODO: add a count limit here so that one connection
-                # can not monoplize the CPU if for example the user was
-                # sending bytes faster than they can be processed by the
-                # server
+                try:
+                    result = self._io_operation_result()
+                except WritingNotDone:
+                    self.server.unregister_read(self)
+                    return
+                except ReadingNotDone:
+                    self.server.register_read(self)
+                    return
 
-        except StopIteration:
-            self.close_connection("State machine stopped.")
-            return
-        except ProtocolException as e:
-            msg = "Protocol exception: " + str(e)
-            log.error(self.name + ": " + msg)
-            self.close_connection(msg)
+                try:
+                    self.io_operation = self.state_machine.send(result)
+                except ProtocolException as e:
+                    msg = "Protocol exception: " + str(e)
+                    log.error(self.name + ": " + msg)
+                    self.close_connection(msg)
+                    return
+                except ConnectionTerminatedCleanly as e:
+                    self.close_connection("Connection terminated cleanly. " + str(e))
+                    return
+                except StopIteration:
+                    self.close_connection("State machine stopped.")
+                    return
         except ConnectionTerminatedByClient as e:
             self.close_connection("Connection terminated by client. " + str(e))
-            return
-        except ConnectionTerminatedGracefully as e:
-            self.close_connection("Connection terminated gracefully. " + str(e))
-            return
-        except socket.error as e:
-            if e.errno is errno.EWOULDBLOCK:
-                pass
-            else:
-                msg = "Unexpected socket error:" + str(e)
-                log.error(self.name + ": " + msg)
-                self.close_connection(msg)
-                return
+            return 
         except _reraised_exceptions:
             raise
         except BaseException as e:
@@ -121,44 +137,11 @@ class BaseConnectionHandler():
             self.close_connection("Unexpected exception: " + str(e))
             return
 
-    def handle_write(self):
-        '''This is called by the MultiplexingTcpServer.handle_events
-        when our socket becomes writable and we are registered as a
-        writable object with the server.'''
-
-        # Transfer data from self._write_buffer to self.socket
-        self._write_bytes_if_needed()
-
-        # If there is no more data left in the _write_buffer,
-        # unregister this connection because we don't need to
-        # do any more writing.
-        if not len(self._write_buffer):
-            self.server.unregister_write(self)
-
     def write_bytes(self, bytes):
         '''This is called whenever there is some new data to queue up to
         be sent on this connection's socket.'''
-
         self._write_buffer += bytes
-
-        # Try sending the data immediately.  This is just to decrease the
-        # latency of sending, it is not necessary.
-        self._write_bytes_if_needed()
-
-        # If not all the data could be sent immediately, then tell
-        # tell the server that this object is writable.  This means
-        # that our handle_write function will get called later when
-        # socket is ready to be written to again.
-        if len(self._write_buffer):
-            self.server.register_write(self)
-
-    def _write_bytes_if_needed(self):
-        if len(self._write_buffer):
-            # Send as many bytes as the socket can accept.
-            num_sent = self.socket.send(self._write_buffer)
-
-            # Remove the sent bytes from the buffer.
-            self._write_buffer = self._write_buffer[num_sent:]
+        self.server.register_write(self)
 
     def write_line(self, line):
         '''Write a line of text to the client.  The line
@@ -167,20 +150,75 @@ class BaseConnectionHandler():
         UTF-8, and then it will be sent on the socket.'''
         self.write_bytes((line+"\r\n").encode('utf-8'))
 
-class MultiplexingTcpServer():
-    address_family = socket.AF_INET
-    socket_type = socket.SOCK_STREAM
-    request_queue_size = 2
+    def handle_write(self):
+        '''This is called by the MultiplexingTcpServer.handle_events
+        when our socket becomes writable and we are registered as a
+        writable object with the server.'''
 
+        # Transfer data from self._write_buffer to self.socket
+        if len(self._write_buffer):
+            # Send as many bytes as the socket can accept.
+            try:
+                num_sent = self.socket.send(self._write_buffer)
+            except socket.error as e:
+                if e.errno is errno.EBADF:
+                    self.close_connection("Connection terminated by client (while writing).")
+                    return
+                else: raise
+
+            # Remove the sent bytes from the buffer.
+            self._write_buffer = self._write_buffer[num_sent:]
+
+        # If there is no more data left in the _write_buffer,
+        # unregister this connection because we don't need to
+        # do any more writing.
+        if not len(self._write_buffer):
+            self.server.unregister_write(self)
+            if self.io_operation == 'sendall':
+                self.run_state_machine()
+
+class Multiplexer():
     select_timeout = None
-    connections = set()
     _readable_objects = set()
     _writable_objects = set()
     _errorable_objects = set()
 
+    def __init__(self):
+        self.register_read = self._readable_objects.add
+        self.unregister_read = self._readable_objects.discard
+        self.register_write = self._writable_objects.add
+        self.unregister_write = self._writable_objects.discard
+        self.register_error = self._errorable_objects.add
+        self.unregister_error = self._errorable_objects.discard
+
+    def handle_events(self):
+        readable, writable, errorable = select.select(self._readable_objects,
+            self._writable_objects, self._errorable_objects, self.select_timeout)
+
+        for r in readable:
+            log.debug("handling read: " + r.name)
+            r.handle_read()
+
+        for w in writable:
+            log.debug("handling write: " + w.name)
+            w.handle_write()
+
+        for e in errorable:
+            log.debug("handling error: " + e.name)
+            e.handle_error()
+
+class MultiplexingTcpServer(Multiplexer):
+    address_family = socket.AF_INET
+    socket_type = socket.SOCK_STREAM
+    request_queue_size = 2
+
+    connections = set()
+
     def __init__(self, server_address, ConnectionHandlerClass):
+        Multiplexer.__init__(self)
         self.ConnectionHandlerClass = ConnectionHandlerClass
         self.socket = socket.socket(self.address_family, self.socket_type)
+        self.fileno = self.socket.fileno
 
         # This prevents the annoying behavior where we can't restart
         # the server for about a minute after terminating it if there
@@ -189,47 +227,10 @@ class MultiplexingTcpServer():
 
         self.socket.bind(server_address)
         self.socket.listen(self.request_queue_size)
+        self.name = "MultiplexingTcpServer(%s:%d)" % server_address
 
         # Listen for incoming connections when handle_events is called.
-        self._readable_objects.add(self)
-
-    def __del__(self):
-        for connection in self.connections:
-            connection.close_connection("Server is getting deleted.")
-        self.socket.close()
-
-    def register_read(self, readable):
-        self._readable_objects.add(readable)
-
-    def unregister_read(self, readable):
-        self._readable_objects.discard(readable)
-
-    def register_write(self, writable):
-        self._writable_objects.add(writable)
-
-    def unregister_write(self, writable):
-        self._writable_objects.discard(writable)
-
-    def handle_events(self):
-        readable, writable, errorable = select.select(self._readable_objects,
-            self._writable_objects, self._errorable_objects, self.select_timeout)
-
-        log.debug("Selected: #r=%d/%d, #w=%d/%d, #e=%d/%d" %
-          (     len(readable), len(self._readable_objects),
-                len(writable), len(self._writable_objects),
-                len(errorable), len(self._errorable_objects) ) )
-
-        for r in readable:
-            r.handle_read()
-
-        for w in writable:
-            w.handle_write()
-
-        for e in errorable:
-            e.handle_error()
-
-    def fileno(self):
-        return self.socket.fileno()
+        self.register_read(self)
 
     def handle_read(self):
         socket, client_address = self.socket.accept()
@@ -238,9 +239,5 @@ class MultiplexingTcpServer():
         connection = self.ConnectionHandlerClass(socket, client_address, self)
         self.connections.add(connection)
         log.debug("Total connections: " + str(len(self.connections)))
-        self._errorable_objects.add(connection)
+        self.register_error(connection)
         connection.new_connection()
-
-
-
-
