@@ -1,0 +1,40 @@
+=================================== input to cool server (:83)
+GET /play HTTP/1.1
+Upgrade: WebSocket
+Connection: Upgrade
+Host: 192.168.1.110:83
+Origin: http://localhost:82
+Sec-WebSocket-Key1: Uv3   \C5] 82  t00!2 64 d
+Sec-WebSocket-Key2: q rh4 1 %1 5  D k2I7 7[89  0
+
+12345678
+
+=================================== response from cool server (:83)
+HTTP/1.1 101 WebSocket Protocol Handshake
+Upgrade: WebSocket
+Connection: Upgrade
+Sec-WebSocket-Location: ws://192.168.1.110:83/play
+Sec-WebSocket-Origin: http://localhost:82
+
+b�����U�
+
+=================================== input to pywebsocket (:82)
+GET /play HTTP/1.1
+Upgrade: WebSocket
+Connection: Upgrade
+Host: 192.168.1.110:82
+Origin: http://localhost:82
+Sec-WebSocket-Key1: Uv3   \C5] 82  t00!2 64 d
+Sec-WebSocket-Key2: q rh4 1 %1 5  D k2I7 7[89  0
+
+12345678
+
+
+================================== response from pywebsocket (:82)
+HTTP/1.1 101 WebSocket Protocol Handshake
+Upgrade: WebSocket
+Connection: Upgrade
+Sec-WebSocket-Location: ws://192.168.1.110:82/play
+Sec-WebSocket-Origin: http://localhost:82
+
+

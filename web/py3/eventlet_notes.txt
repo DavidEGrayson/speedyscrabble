@@ -1,0 +1,9 @@
+Required packages:
+
+python-dev
+python-setuptools
+
+
+Bad things about Eventlet Websockets:
+1) It doesn't work with Google Chrome 6, giving me this error message: code 400, message Bad request syntax
+2) It doesn't use Python's builtin logging module which would have made it easy for me to tell where the error message was coming from.
