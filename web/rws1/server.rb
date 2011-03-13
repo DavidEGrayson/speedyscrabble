@@ -43,7 +43,7 @@ module Handlers
   end
 end
 
-EventMachine::WebSocket.start(:host=>"10.0.1.110", :port=>8080) do |ws|
+EventMachine::WebSocket.start(:host=>"", :port=>8080) do |ws|
   ws.onopen {
     $clients[ws] = Client.new(ws)
     ws.send "n#{$clients[ws].name}"
