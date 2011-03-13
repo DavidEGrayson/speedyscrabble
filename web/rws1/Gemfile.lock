@@ -2,7 +2,7 @@ GEM
   remote: http://rubygems.org/
   specs:
     addressable (2.2.4)
-    em-websocket (0.2.1)
+    em-websocket-davidegrayson (0.2.1)
       addressable (>= 2.1.1)
       eventmachine (>= 0.12.9)
     eventmachine (0.12.10)
@@ -11,5 +11,5 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  em-websocket
+  em-websocket-davidegrayson
   eventmachine

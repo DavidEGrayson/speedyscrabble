@@ -10,6 +10,7 @@ $clients = {}
 $clients.extend(Clients)
 
 class Client
+  #attr_accessor :chatroom
   attr_accessor :ws
   def initialize(websocket)
     @ws = websocket
@@ -17,17 +18,21 @@ class Client
   end
 
   def sanitize_user_name(raw_name)
-    puts raw_name
     name = raw_name.to_s.scan(/[[:alnum:]]/).join[0,25]
     name.empty? ? "Guest" : name
   end
 
   def assign_name(requested_name)
-    requested_name = sanitize_user_name(requested_name)
+    name = sanitize_user_name(requested_name)
     existing_names = $clients.collect{|c| c.name}    
-    while(existing_names.include?(name))
-    
+    if existing_names.include?(name)
+      i = 2
+      while existing_names.include?(name + i.to_s)
+        i += 1
+      end
+      name += i.to_s
     end
+    return name
   end
 
   def name
@@ -49,8 +54,9 @@ EventMachine::WebSocket.start(:host=>"", :port=>8080) do |ws|
     ws.send "n#{$clients[ws].name}"
   }
   ws.onmessage { |msg|
-    if Handlers.respond_to?(msg[0])
-      Handlers.send(msg[0], ws, msg[1..-1])
+    command, data = msd[0], msg[1..-1]
+    if Handlers.respond_to?(command)
+      Handlers.send(command, ws, data)
     end
   }
   ws.onclose {
