@@ -1,20 +1,23 @@
 require 'em-websocket'
 
-module Clients
-  def by_name(name)
-    puts self.inspect
+class ChatRoom
+  attr_accessor :clients
+
+  def initialize
+    @clients = {}
   end
-end
 
-$clients = {}
-$clients.extend(Clients)
+  def add_client(websocket)
+    @clients[websocket] = client = Client.new(websocket)
+    client.name = assign_name(websocket.request["Query"]["name"])
+    websocket.send "n" + client.name
+    send_all "e" + client.name
+  end
 
-class Client
-  #attr_accessor :chatroom
-  attr_accessor :ws
-  def initialize(websocket)
-    @ws = websocket
-    @name = assign_name(@ws.request["Query"]["name"])
+  def remove_client(websocket)
+    client = @clients[websocket]
+    @clients.delete(websocket)
+    send_all "l" + client.name
   end
 
   def sanitize_user_name(raw_name)
@@ -24,7 +27,7 @@ class Client
 
   def assign_name(requested_name)
     name = sanitize_user_name(requested_name)
-    existing_names = $clients.collect{|ws, c| c.name}    
+    existing_names = @clients.collect{|ws, c| c.name}    
     if existing_names.include?(name)
       i = 2
       while existing_names.include?(name + i.to_s)
@@ -35,32 +38,46 @@ class Client
     return name
   end
 
-  def name
-    @name
+  def send_all(message)
+    puts "send_all: #{message}"
+    @clients.each do |websocket, client|
+      websocket.send message
+    end
+  end
+
+  def handle_message(websocket, message)
+    command, data = "command_#{message[0]}", message[1..-1]
+    if respond_to?(command, true)
+      send(command, websocket, data)
+    end
+  end
+
+  private
+  def command_c(websocket, chat_message)
+    send_all "c#{@clients[websocket].name}: #{chat_message}"
+  end
+
+end
+
+class Client
+  attr_reader :ws
+  attr_accessor :name
+
+  def initialize(websocket)
+    @ws = websocket
   end
 end
 
-module Handlers
-  def self.c(ws, msg)
-    $clients.each do |ws2, c|
-      ws2.send "c#{$clients[ws].name}: #{msg}"
-    end
-  end
-end
+chatroom = ChatRoom.new
 
 EventMachine::WebSocket.start(:host=>"", :port=>8080) do |ws|
   ws.onopen {
-    $clients[ws] = Client.new(ws)
-    ws.send "n#{$clients[ws].name}"
+    chatroom.add_client(ws)
   }
   ws.onmessage { |msg|
-    command, data = msg[0], msg[1..-1]
-    if Handlers.respond_to?(command)
-      Handlers.send(command, ws, data)
-    end
+    chatroom.handle_message(ws, msg)
   }
   ws.onclose {
-    $clients.delete(ws)
-    puts "WebSocket closed"
+    chatroom.remove_client(ws)
   }
 end
