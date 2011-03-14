@@ -125,8 +125,18 @@ userList.remove = function(name)
 var chatView = document.getElementById("chatView");
 chatView.add = function(str)
 {
+    var scrollIsAtBottom = (this.scrollTop >= this.scrollHeight - this.clientHeight - 10);
+    //alert("scrollTop="+this.scrollTop+", scrollHeight="+this.scrollHeight + ", height="+this.clientHeight);
 		this.innerHTML += str;
-		this.scrollTop = this.scrollHeight+30;
+		
+		if (scrollIsAtBottom)
+    {
+        this.scrollToBottom();
+		}
+}
+chatView.scrollToBottom = function()
+{
+    this.scrollTop = this.scrollHeight - this.clientHeight;
 }
 
 function sendChat()
@@ -137,6 +147,7 @@ function sendChat()
 		{
 				ws.send('c'+val);
 				chat_input.value = '';
+        chatView.scrollToBottom();
 		}
 }
 
