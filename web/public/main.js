@@ -88,6 +88,8 @@ function onMessage(evt)
 		{
 				// Received the name that has been assigned to us by the server.
         userName = data;
+				chat_user_self = document.getElementById("chat_user_self");
+        chat_user_self.innerHTML = "Logged in as <b>" + userName + "</b>.";
 		}
 }
 
@@ -105,21 +107,51 @@ function status(new_connected, str)
 
 userList = {};
 userList.docObj = document.getElementById("chat_user_list");
+userList.names = [];
+userList.elementFor = function(name)
+{
+    return document.getElementById('user_list_item_'+name);
+}
 userList.add = function(name)
 {
-    // Assumption: name is alphanumeric, with no spaces
-		// TODO: add it in the correct place so that the list is alphabetic
-    userList.docObj.innerHTML += "<div id=\"user_list_item_" + name + "\">" + name + "</div>";
+    // Create the element.
+    var new_element = document.createElement('div');
+		new_element.setAttribute('id', "user_list_item_"+name)
+    new_element.appendChild(document.createTextNode(name)); 
 
+    // Insert it in the correct place in the userList.names
+    // list and in the DOM. 
+		var i;
+    for(i = 0; i < this.names.length; i++)
+    {
+				if (this.names[i] > name)
+        {
+						var b = this.elementFor(this.names[i]);
+						this.docObj.insertBefore(new_element, b);
+            this.names.splice(i,0,name);
+						return;
+        }
+		}
+
+		this.names.push(name);
+    this.docObj.appendChild(new_element);
 }
-
 userList.remove = function(name)
 {
-		var uli = document.getElementById('user_list_item_'+name);
+		var uli = this.elementFor(name);
     if (uli)
 		{
 				userList.docObj.removeChild(uli);
 		}
+
+    var i;
+    for (i = 0; i < this.names.length; i++)
+    {
+				if (this.names[i] == name)
+        {
+            this.names.splice(i,1);
+        }
+    }
 }
 		
 var chatView = document.getElementById("chatView");
