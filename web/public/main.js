@@ -41,6 +41,7 @@ function onClose()
 function onOpen()
 {
 		// Web Socket is connected. You can send data by send() method.
+    userName = undefined;
 	  status(true, "Connected.");
 }
 
@@ -88,9 +89,29 @@ function onMessage(evt)
 		{
 				// Received the name that has been assigned to us by the server.
         userName = data;
-				chat_user_self = document.getElementById("chat_user_self");
-        chat_user_self.innerHTML = "Logged in as <b>" + userName + "</b>.";
+        updateServerStatus();
 		}
+}
+
+function updateServerStatus()
+{
+    document.body.className = connected ? "connected" : "not_connected";
+    serverStatus = document.getElementById("server_status");
+		if (connected)
+    {
+        if (userName)
+        {
+            serverStatus.innerHTML = "Logged in as <b>"+userName+".</b>";
+        }
+        else
+        {
+            serverStatus.innerHTML = "Connected.";
+        }
+    }
+    else
+    {
+        serverStatus.innerHTML = "Not connected.";
+    }
 }
 
 function status(new_connected, str)
@@ -98,9 +119,7 @@ function status(new_connected, str)
 		if (new_connected != connected)
 		{
 				connected = new_connected;
-		    serverStatus = document.getElementById("server_status");
-		    serverStatus.innerHTML = connected ? "Connected." : "Not connected.";
-				document.body.className = connected ? "connected" : "not_connected";
+				updateServerStatus();
     }
 		chatView.add("<div class=\"status_message\">"+str+"</div>");
 }

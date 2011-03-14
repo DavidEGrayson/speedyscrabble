@@ -27,9 +27,14 @@
     font-style: italic;
 }
 
+.not_connected #chat_room_info
+{
+    display: none;
+}
+
 #chat_user_list_title
 {
-  margin-top: 1em;
+    margin-top: 1em;
 }
 
 #page
