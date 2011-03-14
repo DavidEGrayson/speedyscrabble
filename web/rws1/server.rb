@@ -24,7 +24,7 @@ class Client
 
   def assign_name(requested_name)
     name = sanitize_user_name(requested_name)
-    existing_names = $clients.collect{|c| c.name}    
+    existing_names = $clients.collect{|ws, c| c.name}    
     if existing_names.include?(name)
       i = 2
       while existing_names.include?(name + i.to_s)
@@ -54,7 +54,7 @@ EventMachine::WebSocket.start(:host=>"", :port=>8080) do |ws|
     ws.send "n#{$clients[ws].name}"
   }
   ws.onmessage { |msg|
-    command, data = msd[0], msg[1..-1]
+    command, data = msg[0], msg[1..-1]
     if Handlers.respond_to?(command)
       Handlers.send(command, ws, data)
     end
