@@ -1,4 +1,3 @@
-
 var ws;
 var connected;
 var userName;
@@ -8,7 +7,7 @@ function start()
 {
 		if (!("WebSocket" in window))
 		{
-				status(false, "You have no web sockets.");
+				status(false, "Your browser does not support web sockets.  Please use <a href='http://www.google.com/chrome'>Google Chrome</a>.");
 				return;
 		}
 		
@@ -21,16 +20,16 @@ function start()
 		ws.onmessage = onMessage;
 		ws.onclose = onClose;
 
-    setTimeout("sendKeepAlive();", 60000);
+    sendKeepAlives();
 }
 
-function sendKeepAlive()
+function sendKeepAlives()
 {
-		if (ws && ws.readyState == 1)  // If a websocket is open...
+		if (ws && ws.readyState == WebSocket.OPEN)  // If a websocket is open...
     {
         ws.send('');  // Send an empty string to avoid TCP timeout.
 		}
-    setTimeout("sendKeepAlive();", 60000);
+    setTimeout("sendKeepAlives();", 60000);
 }
 
 function onClose()
@@ -177,7 +176,6 @@ var chatView = document.getElementById("chatView");
 chatView.add = function(str)
 {
     var scrollIsAtBottom = (this.scrollTop >= this.scrollHeight - this.clientHeight - 10);
-    //alert("scrollTop="+this.scrollTop+", scrollHeight="+this.scrollHeight + ", height="+this.clientHeight);
 		this.innerHTML += str;
 		
 		if (scrollIsAtBottom)
