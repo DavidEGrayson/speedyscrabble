@@ -7,11 +7,17 @@ class ChatRoom
     @clients = {}
   end
 
+  def client_names
+    @clients.collect{|ws, c| c.name}.sort
+  end
+
   def add_client(websocket)
-    @clients[websocket] = client = Client.new(websocket)
+    client = Client.new(websocket)
     client.name = assign_name(websocket.request["Query"]["name"])
-    websocket.send "n" + client.name
     send_all "e" + client.name
+    @clients[websocket] = client
+    websocket.send "n" + client.name
+    websocket.send "s" + client_names.join(",")
   end
 
   def remove_client(websocket)
@@ -27,7 +33,7 @@ class ChatRoom
 
   def assign_name(requested_name)
     name = sanitize_user_name(requested_name)
-    existing_names = @clients.collect{|ws, c| c.name}    
+    existing_names = self.client_names
     if existing_names.include?(name)
       i = 2
       while existing_names.include?(name + i.to_s)
