@@ -1,3 +1,4 @@
+
 #chatView
 {
     border:1px solid black;
@@ -26,19 +27,15 @@
     font-style: italic;
 }
 
+#chat_user_list_title
+{
+  margin-top: 1em;
+}
+
 #page
 {
     position: relative;
     width: 100%;
-}
-
-#sidebar
-{
-    position: absolute;
-    width: 200px;
-    z-index: 2;
-    left: 0px;
-    top: 0px;
 }
 
 #main

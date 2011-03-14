@@ -20,6 +20,17 @@ function start()
 		ws.onopen = onOpen;
 		ws.onmessage = onMessage;
 		ws.onclose = onClose;
+
+    setTimeout("sendKeepAlive();", 60000);
+}
+
+function sendKeepAlive()
+{
+		if (ws && ws.readyState == 1)  // If a websocket is open...
+    {
+        ws.send('');  // Send an empty string to avoid TCP timeout.
+		}
+    setTimeout("sendKeepAlive();", 60000);
 }
 
 function onClose()
@@ -86,7 +97,7 @@ function status(new_connected, str)
 		{
 				connected = new_connected;
 		    serverStatus = document.getElementById("server_status");
-		    serverStatus.innerHTML = connected ? "Connected" : "Not connected.";
+		    serverStatus.innerHTML = connected ? "Connected." : "Not connected.";
 				document.body.className = connected ? "connected" : "not_connected";
     }
 		chatView.add("<div class=\"status_message\">"+str+"</div>");

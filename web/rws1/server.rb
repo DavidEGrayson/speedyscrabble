@@ -61,6 +61,7 @@ class ChatRoom
   end
 
   def handle_message(websocket, message)
+    return if message == ""
     command, data = "command_#{message[0]}", message[1..-1]
     if respond_to?(command, true)
       send(command, websocket, data)
