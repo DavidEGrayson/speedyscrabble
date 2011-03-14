@@ -1,5 +1,14 @@
 require 'em-websocket'
 
+class Client
+  attr_reader :websocket
+  attr_accessor :name
+
+  def initialize(websocket_arg)
+    @websocket = websocket_arg
+  end
+end
+
 class ChatRoom
   attr_accessor :clients
 
@@ -65,14 +74,6 @@ class ChatRoom
 
 end
 
-class Client
-  attr_reader :ws
-  attr_accessor :name
-
-  def initialize(websocket)
-    @ws = websocket
-  end
-end
 
 chatroom = ChatRoom.new
 
