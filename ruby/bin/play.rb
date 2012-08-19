@@ -5,7 +5,7 @@ def prompt(prompt)
   return gets.to_s.chomp
 end
 
-require File.dirname(__FILE__)+'/speedyscrabble'
+require_relative '../lib/speedyscrabble'
 
 puts "Loading dictionary..."
 dictionary = Dictionary.new
